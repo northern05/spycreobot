@@ -1,0 +1,16 @@
+FROM python:3.10-slim
+WORKDIR /app
+
+# Copy only the necessary files
+COPY bot_requirements.txt ./
+COPY bot/ ./bot/
+
+# Install dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r bot_requirements.txt
+
+# Set environment variables (use a .env file in production)
+ENV TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN
+
+# Run the bot
+CMD ["python3", "bot/bot.py"]

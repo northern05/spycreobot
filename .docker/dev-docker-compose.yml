@@ -1,0 +1,70 @@
+version: '3.9'
+
+services:
+  postgres-agent:
+    image: postgres:latest
+    env_file:
+      - ../.envs/.dev
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PW}
+      PGDATA: "/var/lib/postgresql/data/pgdata"
+    container_name:
+      postgres-agent
+    expose:
+      - ${DB_PORT}
+    ports:
+      - ${DB_PORT}:${DB_PORT}
+    networks:
+      - dev_agent
+    volumes:
+      - /srv/psql:/var/lib/postgresql/data
+    restart: always
+    hostname: postgres-agent
+
+  dev-portfolio-tracker:
+    build:
+      context: ../
+      dockerfile: Dockerfile
+    env_file:
+      - ../.envs/.dev
+    image:
+      dev-portfolio-tracker
+    container_name:
+      dev-portfolio-tracker
+    ports:
+      - "6012:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - dev_agent
+    volumes:
+      - ../:/usr/src/app
+    restart: always
+    command: bash -c 'uvicorn main:app --proxy-headers --host 0.0.0.0'
+    depends_on:
+      - postgres-agent
+    hostname: dev-portfolio-tracker
+
+  tg-bot-tracker:
+    build:
+      context: ../
+      dockerfile: Dockerfile-telegram
+    env_file:
+      - ../.envs/.dev
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+    image:
+      tg-bot-tracker
+    container_name:
+      tg-bot-tracker
+    networks:
+      - dev_agent
+    volumes:
+      - ../:/usr/src/app
+    restart: always
+
+
+networks:
+  dev_agent: { }
