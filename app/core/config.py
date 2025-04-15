@@ -29,6 +29,11 @@ class DBSettings(BaseSettings):
     db_echo: bool = False
 
 
+class CryptoSettings(BaseSettings):
+    MASTER_WALLET: str = os.environ.get("MASTER_WALLET", "")
+    RPC: str = os.environ.get("RPC", "")
+
+
 config = Config()
 db_config = DBSettings()
 redis_config = RedisSettings()

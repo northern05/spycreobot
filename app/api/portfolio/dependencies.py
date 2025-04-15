@@ -31,7 +31,11 @@ async def connect_tg(
         users_data: ConnectTelegram,
         session: AsyncSession = Depends(db_helper.scoped_session_dependency)
 ):
-    user = await auth_dependencies.check_wallet(wallet_address=users_data.wallet, session=session)
+    user = await auth_dependencies.check_telegram_id(
+        wallet=users_data.wallet,
+        telegram_id=users_data.telegram_id,
+        session=session
+    )
     user.telegram_id = users_data.telegram_id
     await session.commit()
     return True

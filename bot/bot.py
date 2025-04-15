@@ -8,10 +8,10 @@ from aiogram.fsm.context import FSMContext
 from bot_utils import *
 
 PAYMENT_WALLET: str = os.environ.get('PAYMENT_WALLET', "")
-TOKEN: str = os.environ.get('TG_TOKEN', "")
-API_URL: str = os.environ.get('BASE_SITE', "")
+TOKEN: str = os.environ.get('TG_TOKEN', "7844930689:AAHS0QHld0NXPEflZzMmbbTYr7TSp7Tet_E")
+API_URL: str = os.environ.get('BASE_SITE', "https://api.agent.zpoken.dev/portfolio_tracker/api/v1")
 API_KEY: str = os.environ.get('TG_API_KEY', "tg_api_key")
-GIF_URL: str = ""
+GIF_URL: str = "https://api.agent.zpoken.dev/portfolio_tracker/api/v1/portfolio/get-gif"
 MAX_BUTTONS_PER_MESSAGE = 10
 
 PAYMENT_PLAN: dict = {5: 10, 50: 90, 250: 450}
