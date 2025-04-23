@@ -1,7 +1,27 @@
 version: '3.9'
 
 services:
-  postgres-agent:
+  redis:
+    image: redis/redis-stack:latest
+    container_name:
+      redis
+    env_file:
+      - ../.envs/.dev
+    environment:
+      REDIS_ARGS: "--requirepass ${REDIS_PASSWORD} --user ${REDIS_USER} on >${REDIS_PASSWORD} ~* allcommands --user default off nopass nocommands"
+    ports:
+      - "6379:6379"
+      - ${REDIS_PORT}:${REDIS_PORT}
+    expose:
+      - ${REDIS_PORT}
+    restart: always
+    volumes:
+      - /srv/redis:/data
+    networks:
+      - dev
+    hostname: redis
+
+  postgres:
     image: postgres:latest
     env_file:
       - ../.envs/.dev
@@ -11,29 +31,28 @@ services:
       POSTGRES_PASSWORD: ${DB_PW}
       PGDATA: "/var/lib/postgresql/data/pgdata"
     container_name:
-      postgres-agent
+      postgres
     expose:
       - ${DB_PORT}
     ports:
       - ${DB_PORT}:${DB_PORT}
     networks:
-      - dev_agent
+      - dev
     volumes:
       - /srv/psql:/var/lib/postgresql/data
     restart: always
-    hostname: postgres-agent
+    hostname: postgres
 
-  dev-portfolio-tracker:
+  dev_bot:
     build:
       context: ../
       dockerfile: Dockerfile
     env_file:
       - ../.envs/.dev
     image:
-      dev-portfolio-tracker
+      dev_bot
     container_name:
-      dev-portfolio-tracker
-    ports:
+      dev_bot
       - "6012:8000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -44,8 +63,8 @@ services:
     restart: always
     command: bash -c 'uvicorn main:app --proxy-headers --host 0.0.0.0'
     depends_on:
-      - postgres-agent
-    hostname: dev-portfolio-tracker
+      - postgres
+    hostname: dev_bot
 
   tg-bot-tracker:
     build:
@@ -56,15 +75,15 @@ services:
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
     image:
-      tg-bot-tracker
+      tg_bot
     container_name:
-      tg-bot-tracker
+      tg_bot
     networks:
-      - dev_agent
+      - dev
     volumes:
       - ../:/usr/src/app
     restart: always
 
 
 networks:
-  dev_agent: { }
+  dev: { }
