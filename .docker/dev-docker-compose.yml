@@ -57,7 +57,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
-      - dev_agent
+      - dev
     volumes:
       - ../:/usr/src/app
     restart: always
