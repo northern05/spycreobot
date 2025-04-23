@@ -53,7 +53,6 @@ services:
       dev_bot
     container_name:
       dev_bot
-      - "6012:8000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
