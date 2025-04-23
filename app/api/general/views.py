@@ -4,9 +4,9 @@ from fastapi.responses import FileResponse
 from pathlib import Path
 
 
-router = APIRouter(tags=["Portfolio"])
+router = APIRouter(tags=["General"])
 
-logger = logging.getLogger('portfolio/views')
+logger = logging.getLogger('general/views')
 
 
 @router.get(
