@@ -64,6 +64,7 @@ services:
     command: bash -c 'uvicorn main:app --proxy-headers --host 0.0.0.0'
     depends_on:
       - postgres
+      - redis
     hostname: dev_bot
 
   tg-bot-tracker:
