@@ -24,8 +24,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     lifespan=lifespan,
     swagger_ui_parameters={"syntaxHighlight": {"theme": "obsidian"}},
-    openapi_url="/portfolio_docs.json",
-    docs_url="/portfolio_docs"
+    openapi_url="/docs.json",
+    docs_url="/docs"
 )
 
 app.add_middleware(
