@@ -21,6 +21,8 @@ dp = Dispatcher()
 tg_router = Router()
 dp.include_router(tg_router)
 
+user_selection_state = {}
+
 
 @tg_router.startup()
 async def on_startup(bot: Bot):
@@ -32,7 +34,8 @@ async def set_bot_commands(bot: Bot):
         types.BotCommand(command="start", description="Start the bot"),
         types.BotCommand(command="add_wallet", description="Authorize with your wallet"),
         types.BotCommand(command="buy_credits", description="Buy credits"),
-        types.BotCommand(command="get_report_menu", description="Get a report"),
+        types.BotCommand(command="credits_menu", description="Credits menu")
+        types.BotCommand(command="get_creatives", description="Get a creatives"),
         types.BotCommand(command="help", description="Show help menu")
     ]
     await bot.set_my_commands(commands)
@@ -45,7 +48,8 @@ async def show_commands(message: types.Message):
             [InlineKeyboardButton(text="📌 Start", callback_data="cmd_start")],
             [InlineKeyboardButton(text="💼 Add wallet", callback_data="cmd_add_wallet")],
             [InlineKeyboardButton(text="📊 Buy credits", callback_data="cmd_buy_credits")],
-            [InlineKeyboardButton(text="📉 Get Report", callback_data="cmd_get_report")],
+            [InlineKeyboardButton(text="Credits Menu", callback_data="cmd_credits_menu")],
+            [InlineKeyboardButton(text="📉 Get Creatives", callback_data="cmd_get_creatives")],
             [InlineKeyboardButton(text="ℹ️ Help", callback_data="cmd_help")]
         ]
     )
@@ -58,7 +62,8 @@ async def handle_command_callback(callback: types.CallbackQuery):
         "cmd_start": "/start - Start the bot",
         "cmd_add_wallet": "/add_coin - Authorize with your wallet",
         "cmd_buy_credits": "/buy_credits - Buy credits",
-        "cmd_get_report": "/get_report_menu - Get a report",
+        "cmd_get_creatives": "/get_creatives - Get creatives",
+        "cmd_credits_menu": "/credits_menu - Credits menu",
         "cmd_help": "/help - Show help message"
     }
     command = command_map.get(callback.data)
@@ -83,7 +88,7 @@ async def save_wallet(message: types.Message, state: FSMContext):
     wallet = message.text.strip()
     result, msg = validate_wallet(address=wallet)
     if result:
-        response = requests.post(f"{API_URL}/connect_telegram",
+        response = requests.post(f"{API_URL}/auth",
                                  json={"telegram_id": str(message.from_user.id), "wallet": wallet})
         if response.status_code == 200:
             await state.set_state(BotState.show_main_menu)
@@ -93,7 +98,7 @@ async def save_wallet(message: types.Message, state: FSMContext):
             await message.answer("Error wallet adding. Try another one time.")
     else:
         await message.answer(msg)
-        await message.answer("Enter your crypto-wallet to create your own portfolio:")
+        await message.answer("Enter your crypto-wallet to create your own creatives:")
         await state.set_state(BotState.entering_wallet)
 
 
@@ -113,9 +118,9 @@ async def main_menu(message: types.Message):
             ]
         )
 
-        await message.answer("Your portfolio:", reply_markup=keyboard)
+        await message.answer("Your creatives:", reply_markup=keyboard)
     else:
-        await message.answer("Error portfolio getting.")
+        await message.answer("Error creatives getting.")
 
 
 @tg_router.callback_query(F.data == "credits_menu")
@@ -163,5 +168,153 @@ async def buy_credits(message: types.Message, state: FSMContext):
         await main_menu(message)
 
 
+@tg_router.callback_query(F.data == "get_creatives")
+async def ask_niche_creatives(callback: types.CallbackQuery, state: FSMContext):
+    await state.set_state(CreativesState.choose_niche)
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Gambling", callback_data="niche:gambling"),
+             InlineKeyboardButton(text="Crypto", callback_data="niche:crypto")],
+            [InlineKeyboardButton(text="Nutra", callback_data="niche:nutra"),
+             InlineKeyboardButton(text="Dating", callback_data="niche:dating")],
+            [InlineKeyboardButton(text="Ecom", callback_data="niche:products"),
+             InlineKeyboardButton(text="Gaming", callback_data="niche:gaming")],
+            [InlineKeyboardButton(text="✅ Submit", callback_data="niche_submit")]
+        ]
+    )
+    user_selection_state[callback.from_user.id] = {"niches": []}
+    await callback.message.answer("Choose niches (multiple allowed):", reply_markup=keyboard)
+
+
+@tg_router.callback_query(CreativesState.choose_niche)
+async def toggle_niche(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    niche = callback.data.split(":")[1]
+    selected = user_selection_state[user_id].get("niches", [])
+    if niche in selected:
+        selected.remove(niche)
+    else:
+        selected.append(niche)
+    user_selection_state[user_id]["niches"] = selected
+    await callback.answer(f"Selected niches: {', '.join(selected)}")
+
+
+@tg_router.callback_query(F.data == "niche_submit")
+async def submit_niches(callback: types.CallbackQuery, state: FSMContext):
+    selected = user_selection_state.get(callback.from_user.id, {}).get("niches", [])
+    await state.set_data({"niches": selected})
+    await state.set_state(CreativesState.choose_placement)
+    placements = ["Facebook", "Instagram", "TikTok", "Google"]
+    buttons = [InlineKeyboardButton(text=p, callback_data=f"placement:{p.lower()}") for p in placements]
+    rows = [[buttons[i], buttons[i + 1]] for i in range(0, len(buttons), 2)]
+    rows.append([InlineKeyboardButton(text="✅ Submit", callback_data="placement_submit")])
+    user_selection_state[callback.from_user.id]["placements"] = []
+    await callback.message.answer("Choose placements:", reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
+
+
+@tg_router.callback_query(CreativesState.choose_placement)
+async def toggle_placement(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    placement = callback.data.split(":")[1]
+    selected = user_selection_state[user_id].get("placements", [])
+    if placement in selected:
+        selected.remove(placement)
+    else:
+        selected.append(placement)
+    user_selection_state[user_id]["placements"] = selected
+    await callback.answer(f"Selected placements: {', '.join(selected)}")
+
+
+@tg_router.callback_query(F.data == "placement_submit")
+async def submit_placements(callback: types.CallbackQuery, state: FSMContext):
+    selected = user_selection_state.get(callback.from_user.id, {}).get("placements", [])
+    await state.update_data({"placements": selected})
+    await state.set_state(CreativesState.choose_countries)
+    countries = ["US", "UA", "DE", "FR", "UK"]
+    buttons = [InlineKeyboardButton(text=country, callback_data=f"country:{country.lower()}") for country in countries]
+    rows = [[buttons[i], buttons[i + 1]] for i in range(0, len(buttons), 2)]
+    rows.append([InlineKeyboardButton(text="✅ Submit", callback_data="country_submit")])
+    user_selection_state[callback.from_user.id]["countries"] = []
+    await callback.message.answer("Choose countries:", reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
+
+
+@tg_router.callback_query(CreativesState.choose_countries)
+async def toggle_country(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    country = callback.data.split(":")[1].upper()
+    selected = user_selection_state[user_id].get("countries", [])
+    if country in selected:
+        selected.remove(country)
+    else:
+        selected.append(country)
+    user_selection_state[user_id]["countries"] = selected
+    await callback.answer(f"Selected countries: {', '.join(selected)}")
+
+
+@tg_router.callback_query(F.data == "country_submit")
+async def submit_countries(callback: types.CallbackQuery, state: FSMContext):
+    selected = user_selection_state.get(callback.from_user.id, {}).get("countries", [])
+    await state.update_data({"countries": selected})
+    await state.set_state(CreativesState.choose_type)
+    types_ = ["image", "video", "meme", "none"]
+    buttons = [InlineKeyboardButton(text=t.capitalize(), callback_data=f"media:{t}") for t in types_]
+    rows = [[buttons[i], buttons[i + 1]] for i in range(0, len(buttons), 2)]
+    rows.append([InlineKeyboardButton(text="✅ Submit", callback_data="media_submit")])
+    user_selection_state[callback.from_user.id]["media_types"] = []
+    await callback.message.answer("Choose ad types:", reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
+
+
+@tg_router.callback_query(CreativesState.choose_type)
+async def toggle_media_type(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    media = callback.data.split(":")[1]
+    selected = user_selection_state[user_id].get("media_types", [])
+    if media in selected:
+        selected.remove(media)
+    else:
+        selected.append(media)
+    user_selection_state[user_id]["media_types"] = selected
+    await callback.answer(f"Selected types: {', '.join(selected)}")
+
+
+@tg_router.callback_query(F.data == "media_submit")
+async def submit_media(callback: types.CallbackQuery, state: FSMContext):
+    selected = user_selection_state.get(callback.from_user.id, {}).get("media_types", [])
+    await state.update_data({"media_types": selected})
+    await state.set_state(CreativesState.choose_period)
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Week", callback_data="week"),
+             InlineKeyboardButton(text="Month", callback_data="month")],
+            [InlineKeyboardButton(text="Quarter", callback_data="quarter"),
+             InlineKeyboardButton(text="Half year", callback_data="half_year")]
+        ]
+    )
+    await callback.message.answer("Choose creatives period:", reply_markup=keyboard)
+
+
+@tg_router.message(CreativesState.choose_period)
+async def ask_keywords_creatives(callback: types.CallbackQuery, state: FSMContext, message: types.Message):
+    period = message.text
+    await state.set_data({"period": period})
+    await state.set_state(CreativesState.enter_keywords)
+    await callback.message.answer("Enter keywords for creatives search:")
+
+
+@tg_router.message(CreativesState.enter_keywords)
+async def get_creatives(callback: types.CallbackQuery, state: FSMContext, message: types.Message):
+    keywords = message.text
+    await state.set_data({"keywords": keywords})
+    await callback.message.answer("✅ All filters selected! Proceeding...")
+    response = requests.get(url=f"{API_URL}/", params={})
+
+
 if __name__ == "__main__":
     dp.run_polling(bot)
+
+# гембла	Gambling	casino, slots, bet, gambling, sportsbook
+# крипта	Crypto	crypto, bitcoin, ethereum, NFT, web3, blockchain
+# нутра	Nutra (supplements/health offers)	weight loss, skin care, supplement, keto, anti-aging
+# дейтинг	Dating	online dating, find love, match, tinder, singles near you
+# товарка	Physical products / Ecom	buy now, limited offer, shipping, shop, ecommerce
+# гейминг	Gaming (non-casino)	mobile game, free to play, MMORPG, strategy game, play now

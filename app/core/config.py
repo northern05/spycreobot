@@ -34,6 +34,15 @@ class CryptoSettings(BaseSettings):
     RPC: str = os.environ.get("RPC", "")
 
 
+class FacebookSettings(BaseSettings):
+    API_URL: str = os.environ.get("API_URL", "https://graph.facebook.com/v19.0/ads_archive")
+    ACCESS_TOKEN: str = os.environ.get("ACCESS_TOKEN",
+                                       "EAAKCNpvlGQ8BO2MKCB3UOGJiF4kgya3SeWkK7R1uCkD4AlFmqkbD4Ox2AG9xZAbcpR6QkEDnJ6yBJFWrkR8SIU3RWSZAQaP5PMEO6Fi1hAg7pdja79L0vxfFDhFGUag24ls2VvNOQuEJbcbo93qGBI2PW7InOZAe3m2FAl3ZCUMl8nrBIqCgkenlBDRM6XwdQZC2OseS5kwtFRIYBEZCVu2cg55j1IgXEeZAAZDZD")
+    APP_ID: str = os.environ.get("APP_ID", "706121008748815")
+    APP_SECRET: str = os.environ.get("APP_SECRET", "aff7dc896abd538f8e8050102bbbc793")
+
+
 config = Config()
 db_config = DBSettings()
 redis_config = RedisSettings()
+fb_config = FacebookSettings()

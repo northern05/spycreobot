@@ -3,7 +3,8 @@ import re
 import requests
 import string
 from urllib.parse import urlparse
-
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.fsm.state import State, StatesGroup
 
 API_URL: str = os.environ.get('BASE_SITE', "https://api.agent.zpoken.dev/portfolio_tracker/api/v1/portfolio")
@@ -25,6 +26,15 @@ class BotState(StatesGroup):
     show_main_menu = State()
     buy_credits = State()
     check_payment = State()
+
+
+class CreativesState(StatesGroup):
+    choose_niche = State()
+    choose_placement = State()
+    choose_countries = State()
+    choose_type = State()
+    choose_period = State()
+    enter_keywords = State()
 
 
 def get_similar_tokens(symbol: str, token_id: str = None):
@@ -80,12 +90,25 @@ def format_urls_in_report(report):
 
     # Replace each URL with a numbered Markdown link
     for index, url in enumerate(urls, start=1):
-
         markdown_link = f'[{extract_domain(url)}]({url})\n'.replace(f"({url})", "")
         report = report.replace(url, markdown_link, 1)
 
     return report
 
+
 def extract_domain(url):
     parsed_url = urlparse(url)
     return parsed_url.netloc
+
+
+def build_multi_select_keyboard(options: list[str], selected: list[str]) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    for option in options:
+        is_selected = "✅ " if option in selected else ""
+        builder.button(
+            text=f"{is_selected}{option}",
+            callback_data=f"toggle:{option}"
+        )
+    builder.button(text="✅ Submit", callback_data="submit")
+    builder.adjust(2)  # 2 columns
+    return builder.as_markup()

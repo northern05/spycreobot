@@ -12,7 +12,7 @@ router = APIRouter(
 )
 
 
-@router.get("")
+@router.post("")
 async def me(
         user: User = Depends(dependencies.check_telegram_id),
 ):
