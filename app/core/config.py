@@ -5,7 +5,6 @@ from pydantic_settings import BaseSettings
 
 class Config(BaseSettings):
     api_v1_prefix: str = "/portfolio_tracker/api/v1"
-    APP_DOMAIN: str = "api.agent.zpoken.dev"
 
 
 class RedisSettings(BaseSettings):

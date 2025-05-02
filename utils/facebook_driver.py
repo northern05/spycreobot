@@ -4,6 +4,15 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import List, Optional, Callable
 
+NICHE_KEYWORDS = {
+    "gambling": ["casino", "slots", "betting", "poker", "blackjack"],
+    "crypto": ["crypto", "bitcoin", "ethereum", "nft", "web3"],
+    "nutra": ["supplement", "weight loss", "keto", "skincare"],
+    "dating": ["dating", "match", "love", "singles"],
+    "products": ["buy now", "shop", "discount", "shipping"],
+    "gaming": ["game", "mmorpg", "strategy", "mobile game"],
+}
+
 
 class FacebookAdsLibraryDriver:
     def __init__(
@@ -68,7 +77,8 @@ class FacebookAdsLibraryDriver:
             keyword: Optional[str] = None,
             limit: int = 50
     ):
-        search_terms = " ".join(niche_keywords)
+        terms = [word for n in niche_keywords for word in NICHE_KEYWORDS.get(n, [])]
+        search_terms = " ".join(terms)
         if keyword:
             search_terms += f" {keyword}"
 
@@ -115,7 +125,7 @@ class FacebookAdsLibraryDriver:
                 "description": ad.get("ad_creative_link_descriptions", [None])[0],
                 "body": ad.get("ad_creative_bodies", [None])[0],
                 "platforms": ad_platforms,
-                "snapshot_url": ad.get("ad_snapshot_url"),
+                "url": ad.get("ad_snapshot_url"),
                 "days_running": days_running,
             }
         except Exception as e:
@@ -131,8 +141,8 @@ if __name__ == '__main__':
 
         driver = FacebookAdsLibraryDriver(
             access_token="EAAKCNpvlGQ8BO2MKCB3UOGJiF4kgya3SeWkK7R1uCkD4AlFmqkbD4Ox2AG9xZAbcpR6QkEDnJ6yBJFWrkR8SIU3RWSZAQaP5PMEO6Fi1hAg7pdja79L0vxfFDhFGUag24ls2VvNOQuEJbcbo93qGBI2PW7InOZAe3m2FAl3ZCUMl8nrBIqCgkenlBDRM6XwdQZC2OseS5kwtFRIYBEZCVu2cg55j1IgXEeZAAZDZD",
-            app_id = "706121008748815",
-            app_secret = "aff7dc896abd538f8e8050102bbbc793"
+            app_id="706121008748815",
+            app_secret="aff7dc896abd538f8e8050102bbbc793"
         )
 
         ads = await driver.search_ads(

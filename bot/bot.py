@@ -9,9 +9,9 @@ from bot_utils import *
 
 PAYMENT_WALLET: str = os.environ.get('PAYMENT_WALLET', "")
 TOKEN: str = os.environ.get('TG_TOKEN', "7844930689:AAHS0QHld0NXPEflZzMmbbTYr7TSp7Tet_E")
-API_URL: str = os.environ.get('BASE_SITE', "https://api.agent.zpoken.dev/portfolio_tracker/api/v1")
+API_URL: str = os.environ.get('BASE_SITE', "http://195.234.6.62/api/v1")
 API_KEY: str = os.environ.get('TG_API_KEY', "tg_api_key")
-GIF_URL: str = "https://api.agent.zpoken.dev/portfolio_tracker/api/v1/portfolio/get-gif"
+GIF_URL: str = "http://195.234.6.62/api/v1/portfolio/get-gif"
 MAX_BUTTONS_PER_MESSAGE = 10
 
 PAYMENT_PLAN: dict = {5: 10, 50: 90, 250: 450}
@@ -25,8 +25,8 @@ user_selection_state = {}
 
 
 @tg_router.startup()
-async def on_startup(bot: Bot):
-    await set_bot_commands(bot)
+async def on_startup(_bot: Bot):
+    await set_bot_commands(_bot)
 
 
 async def set_bot_commands(bot: Bot):
@@ -34,7 +34,7 @@ async def set_bot_commands(bot: Bot):
         types.BotCommand(command="start", description="Start the bot"),
         types.BotCommand(command="add_wallet", description="Authorize with your wallet"),
         types.BotCommand(command="buy_credits", description="Buy credits"),
-        types.BotCommand(command="credits_menu", description="Credits menu")
+        types.BotCommand(command="credits_menu", description="Credits menu"),
         types.BotCommand(command="get_creatives", description="Get a creatives"),
         types.BotCommand(command="help", description="Show help menu")
     ]
@@ -71,7 +71,13 @@ async def handle_command_callback(callback: types.CallbackQuery):
         await callback.message.answer(f"Executing {command}...")  # Optional message
         await callback.answer()  # Closes the loading animation
         await tg_router.message.dispatch(
-            types.Message(chat=callback.message.chat, text=command, from_user=callback.from_user, date=datetime.now()))
+            types.Message(
+                chat=callback.message.chat,
+                text=command,
+                from_user=callback.from_user,
+                date=datetime.now(),
+                message_id=callback.message.message_id
+            ))
 
 
 @tg_router.message(CommandStart())
@@ -104,23 +110,15 @@ async def save_wallet(message: types.Message, state: FSMContext):
 
 @tg_router.message(Command("main_menu"))
 async def main_menu(message: types.Message):
-    telegram_id = message.from_user.id if message.from_user.id != self_id else message.chat.id
-    response = requests.get(f"{API_URL}", params={"telegram_id": str(telegram_id)})
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Credits", callback_data="credits_menu"),
+             InlineKeyboardButton(text="Favourites", callback_data="favourite_menu")],
+            [InlineKeyboardButton(text="Get report", callback_data="get_report_menu")]
+        ]
+    )
 
-    if response.status_code == 200:
-        data = response.json()
-
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text="Credits", callback_data="credits_menu"),
-                 InlineKeyboardButton(text="Favourites", callback_data="favourite_menu")],
-                [InlineKeyboardButton(text="Get report", callback_data="get_report_menu")]
-            ]
-        )
-
-        await message.answer("Your creatives:", reply_markup=keyboard)
-    else:
-        await message.answer("Error creatives getting.")
+    await message.answer("Your creatives:", reply_markup=keyboard)
 
 
 @tg_router.callback_query(F.data == "credits_menu")
