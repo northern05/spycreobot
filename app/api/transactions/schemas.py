@@ -11,5 +11,6 @@ class TransactionBase(BaseModel):
 
 class TransactionCreate(BaseModel):
     tx_hash: str
-    amount: str
+    amount: float
     created_at: datetime
+    from_address: str

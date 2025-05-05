@@ -62,7 +62,7 @@ services:
     volumes:
       - ../:/usr/src/app
     restart: always
-    command: bash -c 'uvicorn main:app --proxy-headers --host 0.0.0.0'
+    command: bash -c 'uvicorn main:app --proxy-headers --host 127.0.0.1'
     depends_on:
       - postgres
       - redis

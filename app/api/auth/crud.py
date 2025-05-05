@@ -32,3 +32,20 @@ async def select_by_telegram_id(session: AsyncSession, telegram_id: str) -> User
     result = await session.execute(stmt)
     user: User | None = result.scalars().first()
     return user
+
+
+async def select_by_wallet(session: AsyncSession, wallet: str) -> User | None:
+    """
+    Method to select user by wallet
+    :param session: session to connect to database
+    :param wallet: users wallet address
+    :return: user
+    """
+    stmt = (
+        select(User)
+        .where(User.wallet == wallet)
+    )
+
+    result = await session.execute(stmt)
+    user: User | None = result.scalars().first()
+    return user

@@ -1,11 +1,11 @@
 import logging
-from fastapi import APIRouter, status, Depends, Response
+from fastapi import APIRouter, status, Depends
 from fastapi.responses import FileResponse
 from pathlib import Path
 
 from . import dependencies, schemas
 
-router = APIRouter(tags=["Portfolio"])
+router = APIRouter(tags=["Creatives"])
 
 logger = logging.getLogger('creatives/views')
 

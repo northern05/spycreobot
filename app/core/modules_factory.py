@@ -1,6 +1,7 @@
 from redis.asyncio import Redis
-from app.core.config import redis_config, fb_config
+from app.core.config import redis_config, fb_config, crypto_config
 from utils.facebook_driver import FacebookAdsLibraryDriver
+from utils.wallet_driver import TronWalletDriver
 
 # -------- Initialize REDIS connection ----------------------
 redis_db = Redis(
@@ -17,3 +18,6 @@ fb_driver = FacebookAdsLibraryDriver(
     access_token=fb_config.ACCESS_TOKEN,
     api_url=fb_config.API_URL
 )
+
+# ----------- Initialize Wallet Driver ----------------------
+wallet_driver = TronWalletDriver(base_url=crypto_config.TRON_API_URL, usdt_address=crypto_config.USDT_CONTRACT)

@@ -6,11 +6,21 @@ from .schemas import CreditsCreate, CreditsUpdate, CreditsBase, ConnectTelegram
 from app.core.models import Credits, User
 
 
-async def get_users_credits(session: AsyncSession, telegram_id: str) -> int | None:
+async def get_users_credits_by_telegram_id(session: AsyncSession, telegram_id: str) -> Credits | None:
     stmt = (
         select(Credits)
         .join(User, User.id == Credits.user_id)
         .filter(User.telegram_id == telegram_id)
+    )
+    result: Result = await session.execute(stmt)
+    users_credits = result.scalars().first()
+    return users_credits
+
+
+async def get_users_credits_by_user_id(session: AsyncSession, user_id: int) -> Credits | None:
+    stmt = (
+        select(Credits)
+        .filter(Credits.user_id == user_id)
     )
     result: Result = await session.execute(stmt)
     users_credits = result.scalars().first()

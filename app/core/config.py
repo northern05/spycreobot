@@ -30,7 +30,8 @@ class DBSettings(BaseSettings):
 
 class CryptoSettings(BaseSettings):
     MASTER_WALLET: str = os.environ.get("MASTER_WALLET", "")
-    RPC: str = os.environ.get("RPC", "")
+    TRON_API_URL: str = os.environ.get("TRON_API_URL", "https://api.trongrid.io")
+    USDT_CONTRACT: str = os.environ.get("USDT_CONTRACT", "TXLAQ63Xg1NAzckPwKHvzw7CSEmLMEqcdj")
 
 
 class FacebookSettings(BaseSettings):
@@ -45,3 +46,4 @@ config = Config()
 db_config = DBSettings()
 redis_config = RedisSettings()
 fb_config = FacebookSettings()
+crypto_config = CryptoSettings()
