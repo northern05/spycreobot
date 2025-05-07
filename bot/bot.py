@@ -25,11 +25,11 @@ user_selection_state = {}
 
 
 @tg_router.startup()
-async def on_startup(_bot: Bot):
-    await set_bot_commands(_bot)
+async def on_startup(bot: Bot):
+    await set_bot_commands(bot)
 
 
-async def set_bot_commands(_bot: Bot):
+async def set_bot_commands(bot: Bot):
     commands = [
         types.BotCommand(command="start", description="Start the bot"),
         types.BotCommand(command="add_wallet", description="Authorize with your wallet"),
@@ -38,7 +38,7 @@ async def set_bot_commands(_bot: Bot):
         types.BotCommand(command="get_creatives", description="Get a creatives"),
         types.BotCommand(command="help", description="Show help menu")
     ]
-    await _bot.set_my_commands(commands)
+    await bot.set_my_commands(commands)
 
 
 @tg_router.message(Command("help"))
