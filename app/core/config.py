@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings
 
 
 class Config(BaseSettings):
-    api_v1_prefix: str = "/portfolio_tracker/api/v1"
+    api_v1_prefix: str = "/bot/api/v1"
 
 
 class RedisSettings(BaseSettings):

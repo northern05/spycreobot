@@ -14,7 +14,7 @@ logger = logging.getLogger('creatives/views')
 @router.post(
     "",
     status_code=status.HTTP_200_OK,
-    response_model=list[schemas.CreativeResponse],
+    response_model=list[schemas.CreditsResponse],
 )
 async def get_all_creatives(
         result: bool = Depends(dependencies.check_payment)
