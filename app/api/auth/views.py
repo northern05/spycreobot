@@ -14,7 +14,7 @@ router = APIRouter(
 
 @router.post("")
 async def me(
-        user: User = Depends(dependencies.check_telegram_id),
+        user: User = Depends(dependencies.check_telegram_id_wallet),
 ):
     """
     Endpoint to return user's wallet connected
