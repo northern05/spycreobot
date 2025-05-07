@@ -16,9 +16,9 @@ from utils.extra import check_payments
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Started lifespan")
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(check_payments, "cron", minute='*/1')
-    scheduler.start()
+    # scheduler = BackgroundScheduler()
+    # scheduler.add_job(check_payments, "cron", minute='*/1')
+    # scheduler.start()
     async with db_helper.engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
