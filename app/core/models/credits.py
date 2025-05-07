@@ -6,6 +6,7 @@ from .base import Base
 
 
 class Credits(Base):
+    __tablename__ = "credits"
     user_id: Mapped[int] = mapped_column(ForeignKey('users.id'), nullable=False)
     credits: Mapped[int] = mapped_column(Integer, nullable=True, server_default="0")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now())

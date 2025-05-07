@@ -11,8 +11,10 @@ from . import crud
 from . import schemas
 from app.api.auth import crud as auth_crud
 from app.api.auth import dependencies as auth_dp
+from app.api.auth.schemas import AuthRequest
 from app.core.modules_factory import wallet_driver
 from app.core.config import CryptoSettings
+from app.core.errors import errors
 
 
 async def get_credits(
@@ -30,20 +32,28 @@ async def get_credits(
             )
         users_credits = await crud.create(
             session=session,
-            credits_data=schemas.CreditsCreate(credits=0, updated_at=datetime.now())
+            credits_data=schemas.CreditsCreate(user_id=user.id, credits=0, updated_at=datetime.now())
         )
     return schemas.CreditsResponse.from_orm(users_credits)
 
 
 async def check_payment(
+        check_data: schemas.CreditsCheck,
         session: AsyncSession = Depends(db_helper.scoped_session_dependency)
 ):
     account_transactions = wallet_driver.get_transactions(address=CryptoSettings.MASTER_WALLET)
     for tr in account_transactions:
         existing_tr = await tr_crud.get_by_tx_hash(session=session, tx_hash=tr.get("tx_hash"))
         if existing_tr: continue
+        user = await auth_dp.check_telegram_id_wallet(session=session, auth_in=AuthRequest(wallet=tr.from_address))
+        if user.telegram_id != check_data.telegram_id:
+            await session.close()
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=errors.credit_errors.USER_NOT_EXISTS
+            )
+
         tr = await tr_crud.create(session=session, transaction_data=TransactionCreate.model_validate(tr))
-        user = await auth_dp.check_telegram_id_wallet(session=session, wallet=tr.from_address)
         users_credits = await crud.get_users_credits_by_user_id(user_id=user.id, session=session)
         users_credits.credits += calculate_credits(amount=tr.amount)
         await session.commit()

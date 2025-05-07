@@ -10,6 +10,7 @@ class CreditsBase(BaseModel):
 
 
 class CreditsCreate(BaseModel):
+    user_id: int
     credits: int
     updated_at: datetime
 
@@ -25,3 +26,8 @@ class CreditsResponse(CreditsBase):
 class ConnectTelegram(BaseModel):
     telegram_id: str
     wallet: str
+
+
+class CreditsCheck(BaseModel):
+    telegram_id: str
+    credits: int

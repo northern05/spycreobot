@@ -10,25 +10,32 @@ router = APIRouter(tags=["Credits"])
 logger = logging.getLogger('creatives/views')
 
 
-
 @router.post(
     "",
     status_code=status.HTTP_200_OK,
-    response_model=list[schemas.CreditsResponse],
+    response_model=bool,
 )
-async def get_all_creatives(
+async def check_payments(
         result: bool = Depends(dependencies.check_payment)
 ):
     """
-    Endpoint to get creatives over user
-    :param session: session to connect to database
-    :return: list creatives
-    """
+        Endpoint check users payments
+        :param session: session to connect to database
+        :return: credits balance
+        """
     return result
 
-
-
-@router.get("/get-gif", response_class=FileResponse)
-async def get_gif():
-    gif_path = Path("gif_waiting.gif")
-    return gif_path
+@router.get(
+    "",
+    status_code=status.HTTP_200_OK,
+    response_model=schemas.CreditsResponse,
+)
+async def get_credits(
+        result: schemas.CreditsResponse = Depends(dependencies.get_credits)
+):
+    """
+        Endpoint to get users credits
+        :param session: session to connect to database
+        :return: credits balance
+        """
+    return result

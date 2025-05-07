@@ -29,7 +29,7 @@ async def get_users_credits_by_user_id(session: AsyncSession, user_id: int) -> C
 
 async def create(session: AsyncSession, credits_data: CreditsCreate) -> Credits | None:
     credits_in = Credits(
-        **credits_data.model_dump(exclude={"telegram_id"}),
+        **credits_data.model_dump(),
     )
     session.add(credits_in)
     await session.commit()

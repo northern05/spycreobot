@@ -8,3 +8,12 @@ class AuthResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     access_token: str
     refresh_token: str
+
+
+class AuthRequest(BaseModel):
+    """
+    Schema to response on auth
+    """
+    model_config = ConfigDict(from_attributes=True)
+    telegram_id: str | None = None
+    wallet: str | None = None

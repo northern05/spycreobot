@@ -7,9 +7,9 @@ from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
 from bot_utils import *
 
-PAYMENT_WALLET: str = os.environ.get('PAYMENT_WALLET', "")
+PAYMENT_WALLET: str = os.environ.get('PAYMENT_WALLET', "0xE1Ef43057f55fb71b2843e50647639a08153236D")
 TOKEN: str = os.environ.get('TG_TOKEN', "7844930689:AAHS0QHld0NXPEflZzMmbbTYr7TSp7Tet_E")
-API_URL: str = os.environ.get('BASE_SITE', "https://affhunter.net/bot/api/v1")
+API_URL: str = os.environ.get('BASE_SITE', "http://127.0.0.1:6010/bot/api/v1")
 API_KEY: str = os.environ.get('TG_API_KEY', "tg_api_key")
 GIF_URL: str = "https://affhunter.net/bot/api/v1/portfolio/get-gif"
 MAX_BUTTONS_PER_MESSAGE = 10
@@ -47,8 +47,9 @@ async def show_commands(message: types.Message):
         inline_keyboard=[
             [InlineKeyboardButton(text="📌 Start", callback_data="cmd_start")],
             [InlineKeyboardButton(text="💼 Add wallet", callback_data="cmd_add_wallet")],
+            [InlineKeyboardButton(text="Main menu", callback_data="cmd_main_menu")],
             [InlineKeyboardButton(text="📊 Buy credits", callback_data="cmd_buy_credits")],
-            [InlineKeyboardButton(text="Credits Menu", callback_data="cmd_credits_menu")],
+            [InlineKeyboardButton(text="Credits menu", callback_data="cmd_credits_menu")],
             [InlineKeyboardButton(text="📉 Get Creatives", callback_data="cmd_get_creatives")],
             [InlineKeyboardButton(text="ℹ️ Help", callback_data="cmd_help")]
         ]
@@ -60,7 +61,8 @@ async def show_commands(message: types.Message):
 async def handle_command_callback(callback: types.CallbackQuery):
     command_map = {
         "cmd_start": "/start - Start the bot",
-        "cmd_add_wallet": "/add_coin - Authorize with your wallet",
+        "cmd_main_menu": "/main_menu - Open main menu",
+        "cmd_add_wallet": "/add_wallet - Authorize with your wallet",
         "cmd_buy_credits": "/buy_credits - Buy credits",
         "cmd_get_creatives": "/get_creatives - Get creatives",
         "cmd_credits_menu": "/credits_menu - Credits menu",
@@ -100,6 +102,7 @@ async def save_wallet(message: types.Message, state: FSMContext):
             await state.set_state(BotState.show_main_menu)
             await message.answer(
                 "Wallet saved! Choose action below:")
+            await main_menu(message)
         else:
             await message.answer("Error wallet adding. Try another one time.")
     else:
@@ -121,6 +124,7 @@ async def main_menu(message: types.Message):
     await message.answer("Your creatives:", reply_markup=keyboard)
 
 
+@tg_router.message(Command("credits_menu"))
 @tg_router.callback_query(F.data == "credits_menu")
 async def show_credits_menu(callback: types.CallbackQuery, state: FSMContext):
     response = requests.get(f"{API_URL}/credits", params={"telegram_id": str(callback.from_user.id)})
@@ -149,17 +153,21 @@ async def cancel_delete(callback: types.CallbackQuery):
 @tg_router.message(BotState.buy_credits)
 async def buy_credits(message: types.Message, state: FSMContext):
     credits_count = message.text.split()[0]
-    await message.answer(f"Make payment {PAYMENT_PLAN.get(credits_count)} to the wallet:")
-    await message.answer(f"_*{PAYMENT_WALLET}*_")
-    await state.set_state(BotState.check_payment)
+    await message.answer(f"Make payment {PAYMENT_PLAN.get(int(credits_count))} to the wallet:")
+    await message.answer(f"_*{PAYMENT_WALLET}*_", parse_mode='MarkdownV2')
     await state.update_data(credits_count=credits_count)
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text="Check payment", callback_data="check_payment")]]
+    )
+    await message.answer("Approve transaction when it will be successful", reply_markup=keyboard)
 
 
-@tg_router.message(BotState.check_payment)
+@tg_router.message(Command("check_payment"))
+@tg_router.callback_query(F.data == "check_payment")
 async def buy_credits(message: types.Message, state: FSMContext):
-    response = requests.post(f"{API_URL}", json={
+    response = requests.post(f"{API_URL}/credits", json={
         "telegram_id": str(message.from_user.id),
-        "credits_count": state.get_state(),
+        "credits": state.get_state(),
     })
     if response.status_code == 200:
         await message.answer(f"Congratulations! You receive {state.get_state()} credits.")

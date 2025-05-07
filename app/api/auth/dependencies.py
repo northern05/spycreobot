@@ -3,19 +3,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.models import db_helper, User
 from . import crud
+from . import schemas
 
 
 async def check_telegram_id_wallet(
-        telegram_id: str = None,
-        wallet: str = None,
+        auth_in: schemas.AuthRequest,
         session: AsyncSession = Depends(db_helper.scoped_session_dependency),
 ) -> User:
-    if telegram_id:
-        user = await crud.select_by_telegram_id(session=session, telegram_id=telegram_id)
+    if auth_in.telegram_id:
+        user = await crud.select_by_telegram_id(session=session, telegram_id=auth_in.telegram_id)
     else:
-        user = await crud.select_by_wallet(session=session, wallet=wallet)
+        user = await crud.select_by_wallet(session=session, wallet=auth_in.wallet)
     if not user:
-        user = await crud.add_user(session=session, telegram_id=telegram_id, wallet=wallet)
-    if not user.wallet: user.wallet = wallet
-    if not user.telegram_id: user.telegram_id = telegram_id
+        user = await crud.add_user(session=session, telegram_id=auth_in.telegram_id, wallet=auth_in.wallet)
+    if not user.wallet: user.wallet = auth_in.wallet
+    if not user.telegram_id: user.telegram_id = auth_in.telegram_id
+    await session.commit()
     return user
