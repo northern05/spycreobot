@@ -28,7 +28,7 @@ def flatten_nested_list(nested_list):
 
 
 def check_payments():
-    response = requests.post(url="https://demo.enerdao.org/api/v1/projects/status_update")
+    response = requests.post(url="https://affhunter.net/bot/api/v1/projects/status_update")
     if response.status_code == 200:
         return {"ok": True}
     else:

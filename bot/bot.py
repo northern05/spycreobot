@@ -9,9 +9,9 @@ from bot_utils import *
 
 PAYMENT_WALLET: str = os.environ.get('PAYMENT_WALLET', "")
 TOKEN: str = os.environ.get('TG_TOKEN', "7844930689:AAHS0QHld0NXPEflZzMmbbTYr7TSp7Tet_E")
-API_URL: str = os.environ.get('BASE_SITE', "http://195.234.6.62/api/v1")
+API_URL: str = os.environ.get('BASE_SITE', "https://affhunter.net/bot/api/v1")
 API_KEY: str = os.environ.get('TG_API_KEY', "tg_api_key")
-GIF_URL: str = "http://195.234.6.62/api/v1/portfolio/get-gif"
+GIF_URL: str = "https://affhunter.net/bot/api/v1/portfolio/get-gif"
 MAX_BUTTONS_PER_MESSAGE = 10
 
 PAYMENT_PLAN: dict = {5: 10, 50: 90, 250: 450}
