@@ -16,7 +16,7 @@ async def check_telegram_id_wallet(
         user = await crud.select_by_wallet(session=session, wallet=auth_in.wallet)
     if not user:
         user = await crud.add_user(session=session, telegram_id=auth_in.telegram_id, wallet=auth_in.wallet)
-    if not user.wallet: user.wallet = auth_in.wallet
+    if not user.wallet or user.wallet != auth_in.wallet: user.wallet = auth_in.wallet
     if not user.telegram_id: user.telegram_id = auth_in.telegram_id
     await session.commit()
     return user

@@ -13,8 +13,24 @@ from app.api.auth import crud as auth_crud
 from app.api.auth import dependencies as auth_dp
 from app.api.auth.schemas import AuthRequest
 from app.core.modules_factory import wallet_driver
-from app.core.config import CryptoSettings
+from app.core.config import crypto_config
 from app.core.errors import errors
+
+
+async def process_users_credits(
+        telegram_id: str,
+        session: AsyncSession = Depends(db_helper.scoped_session_dependency)
+):
+    users_credits = await crud.get_users_credits_by_telegram_id(telegram_id=telegram_id, session=session)
+    if users_credits.credits <= 0:
+        await session.close()
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail=errors.credit_errors.INSUFFICIENT_BALANCE
+        )
+    users_credits.credits -= 1
+    await session.commit()
+    return True
 
 
 async def get_credits(
@@ -41,11 +57,12 @@ async def check_payment(
         check_data: schemas.CreditsCheck,
         session: AsyncSession = Depends(db_helper.scoped_session_dependency)
 ):
-    account_transactions = wallet_driver.get_transactions(address=CryptoSettings.MASTER_WALLET)
+    result = []
+    account_transactions = await wallet_driver.get_transactions(address=crypto_config.MASTER_WALLET)
     for tr in account_transactions:
         existing_tr = await tr_crud.get_by_tx_hash(session=session, tx_hash=tr.get("tx_hash"))
         if existing_tr: continue
-        user = await auth_dp.check_telegram_id_wallet(session=session, auth_in=AuthRequest(wallet=tr.from_address))
+        user = await auth_dp.check_telegram_id_wallet(session=session, auth_in=AuthRequest(wallet=tr.get("from_address")))
         if user.telegram_id != check_data.telegram_id:
             await session.close()
             raise HTTPException(
@@ -53,11 +70,12 @@ async def check_payment(
                 detail=errors.credit_errors.USER_NOT_EXISTS
             )
 
-        tr = await tr_crud.create(session=session, transaction_data=TransactionCreate.model_validate(tr))
+        transaction = await tr_crud.create(session=session, transaction_data=TransactionCreate.model_validate(tr))
+        result.append(transaction.id)
         users_credits = await crud.get_users_credits_by_user_id(user_id=user.id, session=session)
-        users_credits.credits += calculate_credits(amount=tr.amount)
+        users_credits.credits += calculate_credits(amount=tr.get("amount") / 10**tr.get("decimals"))
         await session.commit()
-    return True
+    return {"ok": True if result else False}
 
 
 def calculate_credits(amount: int):

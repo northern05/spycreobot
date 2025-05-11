@@ -77,6 +77,7 @@ class FacebookAdsLibraryDriver:
             keyword: Optional[str] = None,
             limit: int = 50
     ):
+        period = "half_year" if period == "halfyear" else period
         terms = [word for n in niche_keywords for word in NICHE_KEYWORDS.get(n, [])]
         search_terms = " ".join(terms)
         if keyword:
@@ -87,7 +88,7 @@ class FacebookAdsLibraryDriver:
             "search_terms": search_terms,
             "ad_reached_countries": ",".join(countries) if countries else None,
             "ad_active_status": "ALL",
-            "media_type": ad_type.upper() if ad_type else "ALL",
+            "media_type": ad_type if ad_type else "ALL",
             "fields": ",".join([
                 "ad_creative_bodies",
                 "ad_creative_link_titles",
@@ -140,22 +141,22 @@ if __name__ == '__main__':
     async def main():
 
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BO2MKCB3UOGJiF4kgya3SeWkK7R1uCkD4AlFmqkbD4Ox2AG9xZAbcpR6QkEDnJ6yBJFWrkR8SIU3RWSZAQaP5PMEO6Fi1hAg7pdja79L0vxfFDhFGUag24ls2VvNOQuEJbcbo93qGBI2PW7InOZAe3m2FAl3ZCUMl8nrBIqCgkenlBDRM6XwdQZC2OseS5kwtFRIYBEZCVu2cg55j1IgXEeZAAZDZD",
+            access_token="EAAKCNpvlGQ8BO8C5Eexrh4KNQnp8tbGcoBznqIHnDQF9XZCaHXnwRFzv6TX0Fhy7cOatwYI6LinucgBlUniZB1GjkMz8J4N8mmosL0ue1QiI25yyIK4C3oOuqUmIJl8ZAOcnpmUvTlTzhollXptZCPhaXAkKOkT4X5FxvKwnU8nAWzpsgC5zH9KWkfoZCj7WqhOgVGb4r5B165NX6boYZCCPZAZB2rdfyNkupMTXreS5640MG90dAT4hybkFdGz6Y8ZA0i8WzB8U1BHkZD",
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"
         )
 
         ads = await driver.search_ads(
-            niche_keywords=["gambling", "slots"],
+            niche_keywords=["crypto"],
             placements=["facebook", "instagram"],
-            countries=["US", "CA"],
-            ad_type="video",
+            countries=["US", "CA", "UA"],
+            ad_type="all",
             period="month",
-            keyword="blackjack"
+            keyword="solana"
         )
 
         for ad in ads:
-            print(ad["title"], ad["snapshot_url"], ad["days_running"])
+            print(ad["title"], ad["url"], ad["days_running"])
         await driver.close()
 
 

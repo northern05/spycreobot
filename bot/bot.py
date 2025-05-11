@@ -1,4 +1,5 @@
 from typing import Union
+from types import SimpleNamespace
 from datetime import datetime
 from aiogram.client.default import DefaultBotProperties
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
@@ -7,11 +8,11 @@ from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
 from bot_utils import *
 
-PAYMENT_WALLET: str = os.environ.get('PAYMENT_WALLET', "0xE1Ef43057f55fb71b2843e50647639a08153236D")
+PAYMENT_WALLET: str = os.environ.get("MASTER_WALLET", "TPFzv2TnCZCML8ubjxCEPKYqjMxzqZ3Eya")
 TOKEN: str = os.environ.get('TG_TOKEN', "7844930689:AAHS0QHld0NXPEflZzMmbbTYr7TSp7Tet_E")
 API_URL: str = os.environ.get('BASE_SITE', "http://127.0.0.1:6010/bot/api/v1")
 API_KEY: str = os.environ.get('TG_API_KEY', "tg_api_key")
-GIF_URL: str = "https://affhunter.net/bot/api/v1/portfolio/get-gif"
+GIF_URL: str = "https://affhunter.net/bot/api/v1/creatives/get-gif"
 MAX_BUTTONS_PER_MESSAGE = 10
 
 PAYMENT_PLAN: dict = {5: 10, 50: 90, 250: 450}
@@ -29,10 +30,18 @@ async def on_startup(bot: Bot):
     await set_bot_commands(bot)
 
 
+async def delete_previous_message(bot: Bot, chat_id: int, message_id: int):
+    try:
+        await bot.delete_message(chat_id=chat_id, message_id=message_id)
+    except Exception as e:
+        print(f"Error deleting message: {e}")
+
+
 async def set_bot_commands(bot: Bot):
     commands = [
         types.BotCommand(command="start", description="Start the bot"),
         types.BotCommand(command="add_wallet", description="Authorize with your wallet"),
+        types.BotCommand(command="main_menu", description="Main menu"),
         types.BotCommand(command="buy_credits", description="Buy credits"),
         types.BotCommand(command="credits_menu", description="Credits menu"),
         types.BotCommand(command="get_creatives", description="Get a creatives"),
@@ -47,9 +56,8 @@ async def show_commands(message: types.Message):
         inline_keyboard=[
             [InlineKeyboardButton(text="📌 Start", callback_data="cmd_start")],
             [InlineKeyboardButton(text="💼 Add wallet", callback_data="cmd_add_wallet")],
-            [InlineKeyboardButton(text="Main menu", callback_data="cmd_main_menu")],
-            [InlineKeyboardButton(text="📊 Buy credits", callback_data="cmd_buy_credits")],
-            [InlineKeyboardButton(text="Credits menu", callback_data="cmd_credits_menu")],
+            [InlineKeyboardButton(text="📊 Main menu", callback_data="cmd_main_menu")],
+            [InlineKeyboardButton(text="💳 Credits menu", callback_data="cmd_credits_menu")],
             [InlineKeyboardButton(text="📉 Get Creatives", callback_data="cmd_get_creatives")],
             [InlineKeyboardButton(text="ℹ️ Help", callback_data="cmd_help")]
         ]
@@ -60,26 +68,29 @@ async def show_commands(message: types.Message):
 @tg_router.callback_query(F.data.startswith("cmd_"))
 async def handle_command_callback(callback: types.CallbackQuery):
     command_map = {
-        "cmd_start": "/start - Start the bot",
-        "cmd_main_menu": "/main_menu - Open main menu",
-        "cmd_add_wallet": "/add_wallet - Authorize with your wallet",
-        "cmd_buy_credits": "/buy_credits - Buy credits",
-        "cmd_get_creatives": "/get_creatives - Get creatives",
-        "cmd_credits_menu": "/credits_menu - Credits menu",
-        "cmd_help": "/help - Show help message"
+        "cmd_start": cmd_start,
+        "cmd_main_menu": main_menu,
+        "cmd_add_wallet": cmd_start,
+        "cmd_get_creatives": ask_niche_creatives,
+        "cmd_credits_menu": show_credits_menu,
+        "cmd_help": show_commands,
     }
-    command = command_map.get(callback.data)
-    if command:
-        await callback.message.answer(f"Executing {command}...")  # Optional message
-        await callback.answer()  # Closes the loading animation
-        await tg_router.message.dispatch(
-            types.Message(
-                chat=callback.message.chat,
-                text=command,
-                from_user=callback.from_user,
-                date=datetime.now(),
-                message_id=callback.message.message_id
-            ))
+
+    command_func = command_map.get(callback.data)
+    if not command_func:
+        await callback.answer("Unknown command.", show_alert=True)
+        return
+
+    await callback.answer()
+    fake_message = SimpleNamespace(
+        chat=callback.message.chat,
+        from_user=callback.from_user,
+        text="/fake",
+        date=datetime.now(),
+        message_id=callback.message.message_id,
+        answer=callback.message.answer
+    )
+    await command_func(fake_message)
 
 
 @tg_router.message(CommandStart())
@@ -103,6 +114,7 @@ async def save_wallet(message: types.Message, state: FSMContext):
             await message.answer(
                 "Wallet saved! Choose action below:")
             await main_menu(message)
+            await delete_previous_message(bot, message.chat.id, message.message_id)
         else:
             await message.answer("Error wallet adding. Try another one time.")
     else:
@@ -117,7 +129,8 @@ async def main_menu(message: types.Message):
         inline_keyboard=[
             [InlineKeyboardButton(text="Credits", callback_data="credits_menu"),
              InlineKeyboardButton(text="Favourites", callback_data="favourite_menu")],
-            [InlineKeyboardButton(text="Get report", callback_data="get_report_menu")]
+            [InlineKeyboardButton(text="Get creatives", callback_data="get_creatives"),
+             InlineKeyboardButton(text="Pinned", callback_data="get_fav_creatives")]
         ]
     )
 
@@ -126,36 +139,62 @@ async def main_menu(message: types.Message):
 
 @tg_router.message(Command("credits_menu"))
 @tg_router.callback_query(F.data == "credits_menu")
-async def show_credits_menu(callback: types.CallbackQuery, state: FSMContext):
-    response = requests.get(f"{API_URL}/credits", params={"telegram_id": str(callback.from_user.id)})
+async def show_credits_menu(event: types.Message | types.CallbackQuery, bot: Bot):
+    user_id = event.from_user.id
+    chat_id = event.chat.id if isinstance(event, types.Message) else event.message.chat.id
+
+    response = requests.get(f"{API_URL}/credits", params={"telegram_id": str(user_id)})
 
     if response.status_code == 200:
         data = response.json()
         credits_count = data.get("credits")
-        await callback.message.answer(f"Your balance: {credits_count}")
 
-        keyboard = types.ReplyKeyboardMarkup(
-            keyboard=[[types.KeyboardButton(text=f"{k} credits - {v}$")] for k, v in PAYMENT_PLAN.items()],
-            resize_keyboard=True,
-            one_time_keyboard=True
-        )
-        await callback.message.answer("Choose plan:", reply_markup=keyboard)
-        await state.set_state(BotState.buy_credits)
+        if isinstance(event, types.Message):
+            await event.answer(f"Your balance: {credits_count}")
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[[InlineKeyboardButton(text="Show me the prices", callback_data="buy_credits")]]
+            )
+            await bot.send_message(chat_id, "Do you want to top up your balance?", reply_markup=keyboard)
+        elif isinstance(event, types.CallbackQuery):
+            await event.message.answer(f"Your balance: {credits_count}")
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[[InlineKeyboardButton(text="Show me the prices", callback_data="buy_credits")]]
+            )
+            await bot.send_message(chat_id, "Do you want to top up your balance?", reply_markup=keyboard)
+            await event.answer()
+
     else:
-        await callback.message.answer("Unauthorized.")
+        if isinstance(event, types.Message):
+            await event.answer("Unauthorized.")
+        elif isinstance(event, types.CallbackQuery):
+            await event.message.answer("Unauthorized.")
+            await event.answer()
+
+
+@tg_router.callback_query(F.data == "buy_credits")
+async def buy_credits_menu(callback: types.CallbackQuery, state: FSMContext):
+    keyboard = types.ReplyKeyboardMarkup(
+        keyboard=[[types.KeyboardButton(text=f"{k} credits - {v}$")] for k, v in PAYMENT_PLAN.items()],
+        resize_keyboard=True,
+        one_time_keyboard=True
+    )
+    await callback.message.answer("Choose plan:", reply_markup=keyboard)
+    await state.set_state(BotState.buy_credits)
+    await delete_previous_message(bot, callback.message.chat.id, callback.message.message_id)
+    await callback.answer()
 
 
 @tg_router.callback_query(F.data == "cancel_credits")
-async def cancel_delete(callback: types.CallbackQuery):
+async def cancel_credits(callback: types.CallbackQuery):
     await main_menu(callback.message)
 
 
 @tg_router.message(BotState.buy_credits)
 async def buy_credits(message: types.Message, state: FSMContext):
     credits_count = message.text.split()[0]
-    await message.answer(f"Make payment {PAYMENT_PLAN.get(int(credits_count))} to the wallet:")
+    await message.answer(f"Make payment {PAYMENT_PLAN.get(int(credits_count))} USDC to the wallet:")
     await message.answer(f"_*{PAYMENT_WALLET}*_", parse_mode='MarkdownV2')
-    await state.update_data(credits_count=credits_count)
+    await state.set_data({"credits": credits_count})
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[[InlineKeyboardButton(text="Check payment", callback_data="check_payment")]]
     )
@@ -164,18 +203,26 @@ async def buy_credits(message: types.Message, state: FSMContext):
 
 @tg_router.message(Command("check_payment"))
 @tg_router.callback_query(F.data == "check_payment")
-async def buy_credits(message: types.Message, state: FSMContext):
+async def buy_credits(callback: types.CallbackQuery, state: FSMContext):
+    credits_count = await state.get_data()
     response = requests.post(f"{API_URL}/credits", json={
-        "telegram_id": str(message.from_user.id),
-        "credits": state.get_state(),
+        "telegram_id": str(callback.message.from_user.id),
+        "credits": int(credits_count.get("credits")),
     })
     if response.status_code == 200:
-        await message.answer(f"Congratulations! You receive {state.get_state()} credits.")
-        await main_menu(message)
+        result = response.json()
+        if result.get("ok"):
+            await callback.message.answer(f"Congratulations! You receive {credits_count.get('credits')} credits.")
+        else:
+            await callback.message.answer("New transactions not exists!")
+        await main_menu(callback.message)
+    elif isinstance(callback.message, types.CallbackQuery):
+        await callback.answer()
 
 
+@tg_router.message(Command("get_creatives"))
 @tg_router.callback_query(F.data == "get_creatives")
-async def ask_niche_creatives(callback: types.CallbackQuery, state: FSMContext):
+async def ask_niche_creatives(event: types.Message | types.CallbackQuery, bot: Bot, state: FSMContext):
     await state.set_state(CreativesState.choose_niche)
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
@@ -188,12 +235,20 @@ async def ask_niche_creatives(callback: types.CallbackQuery, state: FSMContext):
             [InlineKeyboardButton(text="✅ Submit", callback_data="niche_submit")]
         ]
     )
-    user_selection_state[callback.from_user.id] = {"niches": []}
-    await callback.message.answer("Choose niches (multiple allowed):", reply_markup=keyboard)
+    user_selection_state[event.from_user.id] = {"niches": []}
+    if isinstance(event, types.Message):
+        await event.answer("Choose niches (multiple allowed):", reply_markup=keyboard)
+    elif isinstance(event, types.CallbackQuery):
+        await event.message.answer("Choose niches (multiple allowed):", reply_markup=keyboard)
+        await delete_previous_message(bot, event.message.chat.id, event.message.message_id)
+        await event.answer()
 
 
 @tg_router.callback_query(CreativesState.choose_niche)
-async def toggle_niche(callback: types.CallbackQuery):
+async def toggle_niche(callback: types.CallbackQuery, state: FSMContext):
+    if callback.data.startswith("niche_submit"):
+        await submit_niches(callback, state)
+        return
     user_id = callback.from_user.id
     niche = callback.data.split(":")[1]
     selected = user_selection_state[user_id].get("niches", [])
@@ -205,10 +260,14 @@ async def toggle_niche(callback: types.CallbackQuery):
     await callback.answer(f"Selected niches: {', '.join(selected)}")
 
 
-@tg_router.callback_query(F.data == "niche_submit")
+@tg_router.callback_query(CreativesState.choose_niche, F.data == "niche_submit")
 async def submit_niches(callback: types.CallbackQuery, state: FSMContext):
-    selected = user_selection_state.get(callback.from_user.id, {}).get("niches", [])
-    await state.set_data({"niches": selected})
+    user_id = callback.from_user.id
+    selected_niches = user_selection_state.get(user_id, {}).get("niches", [])
+    if not selected_niches:
+        await callback.answer("Please select at least one niche before submitting.", show_alert=True)
+        return
+    await state.set_data({"niches": selected_niches})
     await state.set_state(CreativesState.choose_placement)
     placements = ["Facebook", "Instagram", "TikTok", "Google"]
     buttons = [InlineKeyboardButton(text=p, callback_data=f"placement:{p.lower()}") for p in placements]
@@ -216,10 +275,14 @@ async def submit_niches(callback: types.CallbackQuery, state: FSMContext):
     rows.append([InlineKeyboardButton(text="✅ Submit", callback_data="placement_submit")])
     user_selection_state[callback.from_user.id]["placements"] = []
     await callback.message.answer("Choose placements:", reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
+    await delete_previous_message(bot, callback.message.chat.id, callback.message.message_id)
 
 
 @tg_router.callback_query(CreativesState.choose_placement)
-async def toggle_placement(callback: types.CallbackQuery):
+async def toggle_placement(callback: types.CallbackQuery, state: FSMContext):
+    if callback.data.startswith("placement_submit"):
+        await submit_placements(callback, state)
+        return
     user_id = callback.from_user.id
     placement = callback.data.split(":")[1]
     selected = user_selection_state[user_id].get("placements", [])
@@ -238,14 +301,23 @@ async def submit_placements(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(CreativesState.choose_countries)
     countries = ["US", "UA", "DE", "FR", "UK"]
     buttons = [InlineKeyboardButton(text=country, callback_data=f"country:{country.lower()}") for country in countries]
-    rows = [[buttons[i], buttons[i + 1]] for i in range(0, len(buttons), 2)]
+    rows = []
+    for i in range(0, len(buttons), 2):
+        if i + 1 < len(buttons):
+            rows.append([buttons[i], buttons[i + 1]])
+        else:
+            rows.append([buttons[i]])  # Add the last element as a single button
     rows.append([InlineKeyboardButton(text="✅ Submit", callback_data="country_submit")])
     user_selection_state[callback.from_user.id]["countries"] = []
     await callback.message.answer("Choose countries:", reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
+    await delete_previous_message(bot, callback.message.chat.id, callback.message.message_id)
 
 
 @tg_router.callback_query(CreativesState.choose_countries)
-async def toggle_country(callback: types.CallbackQuery):
+async def toggle_country(callback: types.CallbackQuery, state: FSMContext):
+    if callback.data.startswith("country_submit"):
+        await submit_countries(callback, state)
+        return
     user_id = callback.from_user.id
     country = callback.data.split(":")[1].upper()
     selected = user_selection_state[user_id].get("countries", [])
@@ -262,65 +334,119 @@ async def submit_countries(callback: types.CallbackQuery, state: FSMContext):
     selected = user_selection_state.get(callback.from_user.id, {}).get("countries", [])
     await state.update_data({"countries": selected})
     await state.set_state(CreativesState.choose_type)
-    types_ = ["image", "video", "meme", "none"]
-    buttons = [InlineKeyboardButton(text=t.capitalize(), callback_data=f"media:{t}") for t in types_]
-    rows = [[buttons[i], buttons[i + 1]] for i in range(0, len(buttons), 2)]
-    rows.append([InlineKeyboardButton(text="✅ Submit", callback_data="media_submit")])
-    user_selection_state[callback.from_user.id]["media_types"] = []
-    await callback.message.answer("Choose ad types:", reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
+    types_ = ["image", "video", "meme", "all"]
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text=t.capitalize(), callback_data=f"media:{t}") for t in types_]]
+    )
+    await callback.message.answer("Choose ad types:", reply_markup=keyboard)
+    await delete_previous_message(bot, callback.message.chat.id, callback.message.message_id)
 
 
 @tg_router.callback_query(CreativesState.choose_type)
-async def toggle_media_type(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
+async def toggle_media_type(callback: types.CallbackQuery, state: FSMContext):
     media = callback.data.split(":")[1]
-    selected = user_selection_state[user_id].get("media_types", [])
-    if media in selected:
-        selected.remove(media)
-    else:
-        selected.append(media)
-    user_selection_state[user_id]["media_types"] = selected
-    await callback.answer(f"Selected types: {', '.join(selected)}")
+    user_selection_state[callback.from_user.id]["media_types"] = media
+    await callback.answer(f"Selected type: {media.capitalize()}")
+    await submit_media(callback, state)
 
 
 @tg_router.callback_query(F.data == "media_submit")
 async def submit_media(callback: types.CallbackQuery, state: FSMContext):
     selected = user_selection_state.get(callback.from_user.id, {}).get("media_types", [])
     await state.update_data({"media_types": selected})
-    await state.set_state(CreativesState.choose_period)
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Week", callback_data="week"),
-             InlineKeyboardButton(text="Month", callback_data="month")],
-            [InlineKeyboardButton(text="Quarter", callback_data="quarter"),
-             InlineKeyboardButton(text="Half year", callback_data="half_year")]
+            [InlineKeyboardButton(text="Week", callback_data="period:week"),
+             InlineKeyboardButton(text="Month", callback_data="period:month")],
+            [InlineKeyboardButton(text="Quarter", callback_data="period:quarter"),
+             InlineKeyboardButton(text="Half year", callback_data="period:halfyear")]
         ]
     )
     await callback.message.answer("Choose creatives period:", reply_markup=keyboard)
+    await state.set_state(CreativesState.choose_period)
+    await delete_previous_message(bot, callback.message.chat.id, callback.message.message_id)
 
 
-@tg_router.message(CreativesState.choose_period)
-async def ask_keywords_creatives(callback: types.CallbackQuery, state: FSMContext, message: types.Message):
-    period = message.text
-    await state.set_data({"period": period})
+@tg_router.callback_query(F.data.startswith("period:"))
+async def handle_period_selection(callback: types.CallbackQuery, state: FSMContext):
+    period = callback.data.split(":")[1]
+    await state.update_data({"period": period})
+    await callback.message.answer(f"You selected period: {period}\nEnter keywords for creatives search:",
+                                  parse_mode="MarkdownV2")
+    await callback.answer()
     await state.set_state(CreativesState.enter_keywords)
-    await callback.message.answer("Enter keywords for creatives search:")
+    await delete_previous_message(bot, callback.message.chat.id, callback.message.message_id)
 
 
 @tg_router.message(CreativesState.enter_keywords)
-async def get_creatives(callback: types.CallbackQuery, state: FSMContext, message: types.Message):
+async def get_creatives(message: types.Message, state: FSMContext):
+    await delete_previous_message(bot, message.chat.id, message.message_id)
+    # await message.answer("✅ All filters selected! Proceeding...")
+    await delete_previous_message(bot, message.chat.id, message.message_id)
+    processing_message = await message.answer_animation(animation=GIF_URL,
+                                                        caption="Processing your request...")
     keywords = message.text
-    await state.set_data({"keywords": keywords})
-    await callback.message.answer("✅ All filters selected! Proceeding...")
-    response = requests.get(url=f"{API_URL}/", params={})
+    await state.update_data({"keywords": keywords})
+    data = await state.get_data()
+    json = {
+        "telegram_id": str(message.from_user.id),
+        "niche_keywords": data.get("niches"),
+        "placements": data.get("placements"),
+        "countries": data.get("countries"),
+        "ad_type": data.get("media_types"),
+        "period": data.get("period"),
+        "keyword": data.get("keywords"),
+    }
+    response = requests.get(url=f"{API_URL}/creatives", json=json)
+    await bot.delete_message(
+        chat_id=processing_message.chat.id,
+        message_id=processing_message.message_id
+    )
+    if response.status_code == 402:
+        keyboard = types.ReplyKeyboardMarkup(
+            keyboard=[[types.KeyboardButton(text="Show me the prices", callback_data="buy_credits")]],
+            resize_keyboard=True,
+            one_time_keyboard=True
+        )
+        await message.answer("You have not enough credits to get creatives! \nTo continue - buy credits!", reply_markup=keyboard)
+    elif response.status_code == 200:
+        data = response.json()
+        msg = ""
+        for creative in data:
+            msg += creative.get("url") + "\n"
+        await message.answer(msg, parse_mode='MarkdownV2', disable_web_page_preview=True)
+
+
+@tg_router.callback_query(F.data == "get_fav_creatives")
+async def get_fav_creatives(callback: types.CallbackQuery):
+    processing_message = await callback.message.answer_animation(animation=GIF_URL,
+                                                                 caption="Processing your request...")
+    json = {
+        "telegram_id": str(callback.message.chat.id),
+        "niche_keywords": ["crypto"],
+        "placements": ["facebook", "tiktok", "instagram", "google"],
+        "countries": ["UA"],
+        "ad_type": "all",
+        "period": "halfyear",
+        "keyword": "Solana",
+    }
+    response = requests.get(url=f"{API_URL}/creatives", json=json)
+    if response.status_code == 402:
+        await callback.message.answer("You have not enough credits to get creatives! \nTo continue - buy credits!")
+        await show_credits_menu(callback)
+    elif response.status_code == 200:
+        data = response.json()
+        await bot.delete_message(
+            chat_id=processing_message.chat.id,
+            message_id=processing_message.message_id
+        )
+        if not data:
+            await callback.message.answer("No ads by your query.", parse_mode='MarkdownV2')
+        msg = ""
+        for creative in data:
+            msg += creative.get("url") + "\n"
+        await callback.message.answer(escape_markdown(msg), parse_mode='MarkdownV2', disable_web_page_preview=True)
 
 
 if __name__ == "__main__":
     dp.run_polling(bot)
-
-# гембла	Gambling	casino, slots, bet, gambling, sportsbook
-# крипта	Crypto	crypto, bitcoin, ethereum, NFT, web3, blockchain
-# нутра	Nutra (supplements/health offers)	weight loss, skin care, supplement, keto, anti-aging
-# дейтинг	Dating	online dating, find love, match, tinder, singles near you
-# товарка	Physical products / Ecom	buy now, limited offer, shipping, shop, ecommerce
-# гейминг	Gaming (non-casino)	mobile game, free to play, MMORPG, strategy game, play now

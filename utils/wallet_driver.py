@@ -1,3 +1,4 @@
+from datetime import datetime
 import httpx
 
 
@@ -36,7 +37,7 @@ class TronWalletDriver:
             elif tx.get("from_address") == address:
                 balance -= int(tx.get("value", 0))
 
-        return balance / 10**6  # USDT has 6 decimals
+        return balance / 10 ** 6  # USDT has 6 decimals
 
     async def get_transactions(self, address: str, limit: int = 10) -> list:
         """Returns last transactions for the given address."""
@@ -47,17 +48,17 @@ class TronWalletDriver:
         data = response.json()
         response = []
         if not data: return []
-        for tx in data:
-            tx_hash = tx.get("transaction_id")
-            amount = int(tx["value"]) / (10 ** int(tx["token_info"].get("decimals", 6)))
-            token_address = tx["token_info"]["address"]
-            from_address = tx.get("from")
-            symbol = tx["token_info"].get("symbol", "")
-            created_at = tx.get("block_timestamp")
-            if token_address == "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t":
-                response.append({"tx_hash": tx_hash, "amount": amount, "from_address": from_address, "created_at": created_at})
+        for tx in data.get("data"):
+            response.append({
+                "tx_hash": tx.get("transaction_id"),
+                "amount": int(tx["value"]),
+                "from_address": tx.get("from"),
+                "asset": tx["token_info"]["address"],
+                "created_at": datetime.fromtimestamp(tx.get("block_timestamp")/1000),
+                "symbol": tx["token_info"].get("symbol"),
+                "decimals": tx["token_info"].get("decimals")})
 
-        return data.get("data", [])
+        return response
 
     async def close(self):
         await self.client.aclose()
@@ -69,10 +70,10 @@ import asyncio
 
 async def main():
     driver = TronWalletDriver(
-        base_url="https://api.trongrid.io",
+        base_url="https://nile.trongrid.io",
         usdt_address="TXLAQ63Xg1NAzckPwKHvzw7CSEmLMEqcdj"
     )
-    wallet = "TCFLL5dx5ZJdKnWuesXxi1VPwjLVmWZZy9"
+    wallet = "TPFzv2TnCZCML8ubjxCEPKYqjMxzqZ3Eya"
 
     trx_balance = await driver.get_balance(wallet)
     usdt_balance = await driver.get_usdt_balance(wallet)

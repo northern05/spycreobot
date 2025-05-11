@@ -11,7 +11,7 @@ logger = logging.getLogger('creatives/views')
 
 
 
-@router.post(
+@router.get(
     "",
     status_code=status.HTTP_200_OK,
     response_model=list[schemas.CreativeResponse],

@@ -29,8 +29,8 @@ class DBSettings(BaseSettings):
 
 
 class CryptoSettings(BaseSettings):
-    MASTER_WALLET: str = os.environ.get("MASTER_WALLET", "")
-    TRON_API_URL: str = os.environ.get("TRON_API_URL", "https://api.trongrid.io")
+    MASTER_WALLET: str = os.environ.get("MASTER_WALLET", "TPFzv2TnCZCML8ubjxCEPKYqjMxzqZ3Eya")
+    TRON_API_URL: str = os.environ.get("TRON_API_URL", "https://nile.trongrid.io") #"https://api.trongrid.io"
     USDT_CONTRACT: str = os.environ.get("USDT_CONTRACT", "TXLAQ63Xg1NAzckPwKHvzw7CSEmLMEqcdj")
 
 
