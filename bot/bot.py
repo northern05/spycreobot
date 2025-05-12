@@ -10,7 +10,7 @@ from bot_utils import *
 
 PAYMENT_WALLET: str = os.environ.get("MASTER_WALLET", "TPFzv2TnCZCML8ubjxCEPKYqjMxzqZ3Eya")
 TOKEN: str = os.environ.get('TG_TOKEN', "7844930689:AAHS0QHld0NXPEflZzMmbbTYr7TSp7Tet_E")
-API_URL: str = os.environ.get('BASE_SITE', "http://127.0.0.1:6010/bot/api/v1")
+API_URL: str = os.environ.get('BASE_SITE', "https://affhunter.net/bot/api/v1")
 API_KEY: str = os.environ.get('TG_API_KEY', "tg_api_key")
 GIF_URL: str = "https://affhunter.net/bot/api/v1/creatives/get-gif"
 MAX_BUTTONS_PER_MESSAGE = 10
