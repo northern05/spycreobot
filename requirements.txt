@@ -74,10 +74,5 @@ psutil
 unstructured==0.14.10
 openai==1.70.0
 solders==0.23.0
-plotly
-pandas
-kaleido
 aiogram
 scipy
-twikit
-linkify-it-py

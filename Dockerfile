@@ -1,6 +1,6 @@
 FROM python:3.11
 
-RUN apt-get update && apt-get upgrade -y && apt-get install -y chromium-driver
+RUN apt-get update && apt-get upgrade -y
 RUN pip install --upgrade pip
 
 WORKDIR /usr/src/app
