@@ -10,14 +10,13 @@ router = APIRouter(tags=["Creatives"])
 logger = logging.getLogger('creatives/views')
 
 
-
 @router.get(
     "",
     status_code=status.HTTP_200_OK,
-    response_model=list[schemas.CreativeResponse],
+    response_model=dict,
 )
 async def get_all_creatives(
-        result: list[schemas.CreativeResponse] = Depends(dependencies.get_creatives)
+        result: dict = Depends(dependencies.get_creatives)
 ):
     """
     Endpoint to get creatives over user
@@ -25,7 +24,6 @@ async def get_all_creatives(
     :return: list creatives
     """
     return result
-
 
 
 @router.get("/get-gif", response_class=FileResponse)

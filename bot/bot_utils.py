@@ -8,16 +8,8 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.fsm.state import State, StatesGroup
 
 API_URL: str = os.environ.get('BASE_SITE', "https://api.agent.zpoken.dev/portfolio_tracker/api/v1/portfolio")
-self_id = 7540334723
 WALLET_REGEX = {
-    "Ethereum / BSC / Polygon (EVM-based)": r"^0x[a-fA-F0-9]{40}$",
-    "Bitcoin": r"^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,39}$",
-    "Solana": r"^[1-9A-HJ-NP-Za-km-z]{32,44}$",
-    "Tron (TRC-20)": r"^T[a-zA-Z0-9]{33}$",
-    "Ripple (XRP)": r"^r[0-9a-zA-Z]{24,34}$",
-    "Dogecoin": r"^D{1}[5-9A-HJ-NP-U]{1}[1-9A-HJ-NP-Za-km-z]{32,34}$",
-    "Litecoin": r"^[LM3][a-km-zA-HJ-NP-Z1-9]{26,33}$",
-    "Cardano (ADA)": r"^addr1[a-z0-9]+$",
+    "Tron (TRC-20)": r"^T[a-zA-Z0-9]{33}$"
 }
 
 
@@ -77,8 +69,6 @@ def escape_markdown(text):
 
 
 def format_urls_in_report(report):
-    pattern = r'\[0_system\]|\[0_q_\d+\]|0_a_\d+'
-    report = re.sub(pattern, '', report)
     report = re.sub(r'\s*,\s*', ' ', report).strip()
 
     # Regular expression pattern to match URLs

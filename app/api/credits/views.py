@@ -13,10 +13,10 @@ logger = logging.getLogger('creatives/views')
 @router.post(
     "",
     status_code=status.HTTP_200_OK,
-    response_model=bool,
+    response_model=dict,
 )
 async def check_payments(
-        result: bool = Depends(dependencies.check_payment)
+        result: dict = Depends(dependencies.check_payment)
 ):
     """
         Endpoint check users payments
