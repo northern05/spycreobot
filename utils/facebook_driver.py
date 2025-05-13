@@ -47,15 +47,12 @@ class FacebookAdsLibraryDriver:
             "client_secret": self.app_secret,
             "fb_exchange_token": self.access_token
         }
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(url, params=params)
-                response.raise_for_status()
-                new_token = response.json()["access_token"]
-                self.access_token = new_token  # 🔐 Store new token in driver
-                return new_token
-        except httpx.HTTPStatusError as e:
+        response = requests.get(url, params=params)
+        new_token = response.json().get("access_token")
+        if not new_token:
             raise Exception(f"Token exchange failed: {e.response.status_code} - {e.response.text}") from e
+        self.access_token = new_token  # 🔐 Store new token in driver
+        return new_token
 
     async def _fetch_ads(self, params: dict) -> List[dict]:
         """Fetches ads from the Facebook Ads Library API, handling token refresh and errors."""
