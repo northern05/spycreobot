@@ -63,7 +63,7 @@ class FacebookAdsLibraryDriver:
                 response.raise_for_status()  # Raise HTTPStatusError for bad status codes
                 return response.json().get("data", [])
             except httpx.HTTPStatusError as e:
-                if e.response.status_code == 401 and attempt < retries - 1:  # Token expired, retry once
+                if e.response.status_code in (401, 400) and attempt < retries - 1:  # Token expired, retry once
                     try:
                         self.access_token = await self.exchange_token()
                         params["access_token"] = self.access_token
