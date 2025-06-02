@@ -167,8 +167,8 @@ class FacebookAdsLibraryDriver:
         body = ad.get("ad_creative_bodies", [""])[0]
         content = f"{title} {description} {body}".lower()
 
-        if keyword and keyword.lower() not in content:
-            return None
+        # if keyword and keyword.lower() not in content:
+        #     return None
 
         return {
             "title": title,

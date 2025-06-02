@@ -516,8 +516,11 @@ async def get_fav_creatives(callback: types.CallbackQuery, state: FSMContext):
         if not data:
             await callback.message.answer("No favorite pins found.")
             return
+        user_pins_data = {}
 
         for index, pin in enumerate(data):
+            pin_id = f"pin_{index}"
+            user_pins_data[pin_id] = pin
             niche_keywords = pin.get("niche_keywords")
             placements = pin.get("placements")
             countries = pin.get("countries")
@@ -526,11 +529,7 @@ async def get_fav_creatives(callback: types.CallbackQuery, state: FSMContext):
             keyword = pin.get("keyword")
 
             # Генеруємо callback_data, можеш замінити на JSON encode + compress, якщо потрібно передати більше
-            callback_data = (
-                f"pin_run:"
-                f"{','.join(niche_keywords)}|{','.join(placements)}|{','.join(countries)}|"
-                f"{ad_type}|{period}|{keyword}"
-            )
+            callback_data = f"pin_run:{pin_id}"
 
             keyboard = InlineKeyboardMarkup(
                 inline_keyboard=[
@@ -548,6 +547,7 @@ async def get_fav_creatives(callback: types.CallbackQuery, state: FSMContext):
                 parse_mode="Markdown",
                 reply_markup=keyboard
             )
+        await state.update_data(user_pins=user_pins_data)
     else:
         await callback.message.answer("Something went wrong!")
         await main_menu(callback.message)
@@ -555,15 +555,35 @@ async def get_fav_creatives(callback: types.CallbackQuery, state: FSMContext):
 
 @tg_router.callback_query(F.data.startswith("pin_run:"))
 async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
-    await callback.answer()
-    payload = callback.data.replace("pin_run:", "")
+    # ⏳ Optional loading message
+    processing_message = await callback.message.answer_animation(
+        animation=GIF_URL,
+        caption="Processing your saved search..."
+    )
+    pin_id_from_callback = callback.data.split(":")[1]
+    user_data = await state.get_data()
+    user_pins = user_data.get("user_pins", {})
+
+    selected_pin = user_pins.get(pin_id_from_callback)
+
+    if not selected_pin:
+        await callback.message.answer("Error: Pin data not found. Please try again or start over.")
+        await callback.answer()
+        return
+
+    niche_keywords = selected_pin.get("niche_keywords", [])
+    placements = selected_pin.get("placements", [])
+    countries = selected_pin.get("countries", [])
+    ad_type = selected_pin.get("ad_type", "all")  # Default 'all'
+    period = selected_pin.get("period", "week")  # Default 'week'
+    keyword = selected_pin.get("keyword")
+
     try:
-        niches_str, placements_str, countries_str, ad_type, period, keyword = payload.split("|")
         data = {
             "telegram_id": str(callback.from_user.id),
-            "niche_keywords": niches_str.split(","),
-            "placements": placements_str.split(","),
-            "countries": countries_str.split(","),
+            "niche_keywords": niche_keywords,
+            "placements": placements,
+            "countries": countries,
             "ad_type": ad_type,
             "period": period,
             "keyword": keyword,
@@ -571,12 +591,6 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
     except Exception as e:
         await callback.message.answer("Failed to parse pin data.")
         return
-
-    # ⏳ Optional loading message
-    processing_message = await callback.message.answer_animation(
-        animation=GIF_URL,
-        caption="Processing your saved search..."
-    )
 
     # Make API call
     response = requests.get(url=f"{API_URL}/creatives", json=data)
@@ -595,7 +609,7 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
         })
 
         if not ads:
-            await callback.message.answer("No creatives found.")
+            await callback.message.answer("No creatives found")
             return
 
         for creative in ads:
