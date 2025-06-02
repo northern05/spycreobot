@@ -616,7 +616,7 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
             title = escape_markdown(creative.get('title', "Creative with no title"))
             url = creative.get('url')
             days_running = creative.get('days_running')
-            msg = f"\n[{title}]({url})" + f"\n *Days running:* {days_running}\n"
+            msg = f"\n[{title if title else 'link'}]({url})" + f"\n *Days running:* {days_running}\n"
             await callback.message.answer(msg, parse_mode='MarkdownV2', disable_web_page_preview=True)
 
         # Navigation
