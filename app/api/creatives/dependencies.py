@@ -1,23 +1,10 @@
-import asyncio
-from datetime import datetime, timedelta
-import json
-from typing import Annotated
-from fastapi import Path, Depends, HTTPException, status
+from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import errors
 from app.api.credits import dependencies as credits_dp
 from app.core.models import db_helper
-from .schemas import CreativeResponse, CreativeBase, CreativeRequest
-from app.core.modules_factory import redis_db, fb_driver
-
-
-async def pin_creative_to_user(
-        creative_data: CreativeBase,
-        session: AsyncSession = Depends(db_helper.scoped_session_dependency),
-) -> CreativeResponse:
-    result = None
-    return CreativeResponse.from_orm(result)
+from .schemas import CreativeResponse, CreativeRequest
+from app.core.modules_factory import fb_driver
 
 
 async def get_creatives(

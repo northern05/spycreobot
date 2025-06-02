@@ -430,7 +430,8 @@ async def get_creatives(message: types.Message, state: FSMContext):
             await message.answer(msg, parse_mode='MarkdownV2', disable_web_page_preview=True)
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text="Next", callback_data="get_fav_creatives")],
-                             [InlineKeyboardButton(text="Main menu", callback_data="main_menu")]]
+                             [InlineKeyboardButton(text="Main menu", callback_data="main_menu")],
+                             [InlineKeyboardButton(text="Pin search", callback_data="pin_search")]]
         )
         await message.answer("Do you want to get next 10 creatives?", reply_markup=keyboard)
     else:
@@ -438,53 +439,49 @@ async def get_creatives(message: types.Message, state: FSMContext):
         await main_menu(event=message)
 
 
-@tg_router.callback_query(F.data == "get_fav_creatives")
-async def get_fav_creatives(callback: types.CallbackQuery, state: FSMContext):
-    processing_message = await callback.message.answer_animation(animation=GIF_URL,
-                                                                 caption="Processing your request...")
-    state_data = await state.get_data()
+@tg_router.callback_query(F.data == "pin_search")
+async def pin_search(message: types.Message, state: FSMContext):
+    telegram_id = message.from_user.id if message.from_user.id != SELF_ID else message.chat.id
+    data = await state.get_data()
     json = {
-        "telegram_id": str(callback.message.chat.id),
-        "niche_keywords": ["crypto"],
-        "placements": ["facebook", "tiktok", "instagram", "google"],
-        "countries": ["UA"],
-        "ad_type": "all",
-        "period": "month",
-        "keyword": "Solana",
-        "after": state_data.get("after")
+        "niche_keywords": data.get("niches"),
+        "placements": data.get("placements"),
+        "countries": data.get("countries"),
+        "ad_type": data.get("media_types"),
+        "period": data.get("period"),
+        "keyword": data.get("keywords"),
     }
-    response = requests.get(url=f"{API_URL}/creatives", json=json)
-    if response.status_code == 402:
-        await callback.message.answer("You have not enough credits to get creatives! \nTo continue - buy credits!")
-        await show_credits_menu(event=callback, bot=bot)
-    elif response.status_code == 200:
-        data = response.json()
-        await bot.delete_message(
-            chat_id=processing_message.chat.id,
-            message_id=processing_message.message_id
-        )
-        if not data:
-            await callback.message.answer("No ads by your query.", parse_mode='MarkdownV2')
-
-        ads = data.get("ads")
-        after = data.get("after")
-        keyword_index = data.get("keyword_index")
-        await state.update_data({"after": after, "keyword_index": keyword_index})
-
-        for creative in ads:
-            title = escape_markdown(creative.get('title', "Creative with no title"))
-            url = creative.get('url')
-            days_running = creative.get('days_running')
-            msg = f"\n[{title}]({url})" + f"\n *Days running:* {days_running}\n"
-            await callback.message.answer(msg, parse_mode='MarkdownV2', disable_web_page_preview=True)
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[[InlineKeyboardButton(text="Next", callback_data="get_fav_creatives")],
-                             [InlineKeyboardButton(text="Main menu", callback_data="main_menu")]]
-        )
-        await callback.message.answer("Do you want to get next 10 creatives?", reply_markup=keyboard)
+    response = requests.post(url=f"{API_URL}/pins", json=json, params={"telegram_id": str(telegram_id)})
+    if response.status_code == 200:
+        await message.answer("Search successfully pins!")
     else:
-        await callback.message.answer("Something went wrong!")
-        await main_menu(event=callback)
+        await message.answer("Something went wrong, try later :(")
+    await main_menu(message)
+
+
+@tg_router.callback_query(F.data == "get_fav_creatives")
+async def get_fav_creatives(message: types.Message, state: FSMContext):
+    telegram_id = message.from_user.id if message.from_user.id != SELF_ID else message.chat.id
+    response = requests.get(url=f"{API_URL}/pins", params=str(telegram_id))
+    if response.status_code == 200:
+        data = response.json()
+        for pin in data:
+            niche_keywords = pin.get("niche_keywords")
+            placements = pin.get("placements")
+            countries = pin.get("countries")
+            ad_type = pin.get("ad_type")
+            period = pin.get("period")
+            keyword = pin.get("keyword")
+            await message.answer(f"Niche: {niche_keywords} \n "
+                                 f"Placements: {placements} \n "
+                                 f"Countries: {countries} \n "
+                                 f"Type: {ad_type},"
+                                 f"Period: {period},"
+                                 f"Keyword: {keyword}")
+
+    else:
+        await message.answer("Something went wrong!")
+        await main_menu(message)
 
 
 if __name__ == "__main__":

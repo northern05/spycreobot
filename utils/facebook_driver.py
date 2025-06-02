@@ -4,14 +4,15 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import List, Optional, Callable
 
-NICHE_KEYWORDS = {
-    "gambling": ["casino", "slots", "betting", "poker", "blackjack"],
-    "crypto": ["crypto", "bitcoin", "ethereum", "nft", "web3"],
-    "nutra": ["supplement", "weight loss", "keto", "skincare"],
-    "dating": ["dating", "match", "love", "singles"],
-    "products": ["buy now", "shop", "discount", "shipping"],
-    "gaming": ["game", "mmorpg", "strategy", "mobile game"],
-}
+
+# NICHE_KEYWORDS = {
+#     "gambling": ["casino", "slots", "betting", "poker", "blackjack"],
+#     "crypto": ["crypto", "bitcoin", "ethereum", "nft", "web3"],
+#     "nutra": ["supplement", "weight loss", "keto", "skincare"],
+#     "dating": ["dating", "match", "love", "singles"],
+#     "products": ["buy now", "shop", "discount", "shipping"],
+#     "gaming": ["game", "mmorpg", "strategy", "mobile game"],
+# }
 
 
 class FacebookAdsLibraryDriver:
@@ -47,12 +48,17 @@ class FacebookAdsLibraryDriver:
             "client_secret": self.app_secret,
             "fb_exchange_token": self.access_token
         }
-        response = requests.get(url, params=params)
-        new_token = response.json().get("access_token")
-        if not new_token:
-            raise Exception(f"Token exchange failed: {e.response.status_code} - {e.response.text}") from e
-        self.access_token = new_token  # 🔐 Store new token in driver
-        return new_token
+        try:
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            new_token = response.json().get("access_token")
+            if not new_token:
+                raise Exception("Token exchange failed: empty access_token in response.")
+            self.access_token = new_token  # 🔐 Store new token in driver
+            return new_token
+        except requests.RequestException as e:
+            raise Exception(
+                f"Token exchange failed: {e.response.status_code if e.response else 'No response'} - {e}") from e
 
     async def _fetch_ads(self, params: dict) -> List[dict]:
         """Fetches ads from the Facebook Ads Library API, handling token refresh and errors."""
@@ -92,54 +98,48 @@ class FacebookAdsLibraryDriver:
             period: str = "week",
             keyword: Optional[str] = None,
             limit: int = 10,
-            keyword_index: int = 0,  # Track which keyword we're on
-            after: Optional[str] = None  # Facebook cursor for pagination
+            after: Optional[str] = None
     ) -> tuple:
         period = "half_year" if period == "halfyear" else period
-        keywords = [keyword] if keyword else []
-        for niche in niche_keywords:
-            keywords.extend(NICHE_KEYWORDS.get(niche, []))
 
-        while keyword_index < len(keywords):
-            term = keywords[keyword_index]
-            params = {
-                "access_token": self.access_token,
-                "search_terms": term,
-                "ad_reached_countries": ",".join(countries) if countries else None,
-                "ad_active_status": "ALL",
-                "media_type": ad_type if ad_type else "ALL",
-                "fields": ",".join([
-                    "ad_creative_bodies",
-                    "ad_creative_link_titles",
-                    "ad_creative_link_descriptions",
-                    "ad_snapshot_url",
-                    "publisher_platforms",
-                    "ad_delivery_start_time",
-                    "ad_delivery_stop_time",
-                ]),
-                "limit": limit,
-                "start_date": self._calculate_date_filter(period),
-            }
-            if after:
-                params["after"] = after
+        params = {
+            "access_token": self.access_token,
+            "search_terms": f"{keyword},".join(niche_keywords),
+            "ad_reached_countries": ",".join(countries) if countries else None,
+            "ad_active_status": "ALL",
+            "media_type": ad_type if ad_type else "ALL",
+            "fields": ",".join([
+                "ad_creative_bodies",
+                "ad_creative_link_titles",
+                "ad_creative_link_descriptions",
+                "ad_snapshot_url",
+                "publisher_platforms",
+                "ad_delivery_start_time",
+                "ad_delivery_stop_time",
+            ]),
+            "limit": limit,
+            "start_date": self._calculate_date_filter(period),
+        }
 
-            params = {k: v for k, v in params.items() if v}
-            raw_response = await self.client.get(self.api_url, params=params)
-            raw_response.raise_for_status()
-            data = raw_response.json()
+        if after:
+            params["after"] = after
 
-            raw_ads = data.get("data", [])
-            next_cursor = data.get("paging", {}).get("cursors", {}).get("after")
-            formatted_ads = [self._format_ad(ad, placements) for ad in raw_ads if self._format_ad(ad, placements)]
+        params = {k: v for k, v in params.items() if v}
 
-            if formatted_ads:
-                return formatted_ads[:limit], next_cursor, keyword_index
+        raw_response = await self.client.get(self.api_url, params=params)
+        raw_response.raise_for_status()
+        data = raw_response.json()
 
-            # If no ads returned, go to next keyword
-            keyword_index += 1
-            after = None  # reset cursor for next keyword
+        raw_ads = data.get("data", [])
+        next_cursor = data.get("paging", {}).get("cursors", {}).get("after")
 
-        return [], None, None  # No more ads
+        formatted_ads = []
+        for ad in raw_ads:
+            formatted = self._format_ad(ad, placements)
+            if formatted:
+                formatted_ads.append(formatted)
+
+        return formatted_ads[:limit], next_cursor
 
     def _format_ad(self, ad: dict, placements: Optional[List[str]]) -> Optional[dict]:
         if not ad.get("ad_snapshot_url"):  # ad is likely deleted or restricted
@@ -158,14 +158,18 @@ class FacebookAdsLibraryDriver:
             ad_platforms = ad.get("publisher_platforms", [])
             if not any(p in ad_platforms for p in placements):
                 return None  # filter out ads not on desired platforms
+        title = ad.get("ad_creative_link_titles", ["No title"])[0]
+        description = ad.get("ad_creative_link_descriptions", [""])[0]
+        body = ad.get("ad_creative_bodies", [""])[0]
 
         return {
-            "title": ad.get("ad_creative_link_titles", ["No title"])[0],
-            "description": ad.get("ad_creative_link_descriptions", [""])[0],
-            "body": ad.get("ad_creative_bodies", [""])[0],
+            "title": title,
+            "description": description,
+            "body": body,
             "platforms": ad.get("publisher_platforms", []),
             "url": ad.get("ad_snapshot_url"),
-            "days_running": days_running
+            "days_running": days_running,
+            "content": f"{title} {description} {body}".lower()
         }
 
     async def close(self):
@@ -174,9 +178,8 @@ class FacebookAdsLibraryDriver:
 
 if __name__ == '__main__':
     async def main():
-
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BO7EuEZB3PRt7dXcho9MZAMqDq0uR29d0AFabFWAj9e2567HYdK7RPfGyPmfTunLRWTeZBJ4eOtRKVlcInrK8QzLUBHuZA6eXYcmRqD06cvZCu4Uupn29DKDhX7Cs09Q3wKUJ5Ar3hJZCvKu9em4zLxHESFLteYvGG5tFF2yQZAgLZBT1DHRvox1bm1aL8wgX1lHCN0ksmn96I6UPq8skMDOCrhsZD",
+            access_token="EAAKCNpvlGQ8BO92L4SjM3lcsjukZBrgNfaFeWhstohqZAc4Rbl8idd9ntzDMpwZCe6RhAht4sdAttPaec6a1BreIvz836QirNd1ydoWdJlLzOGZAnW7URV9A3o898aqwvfxa6X2tUC67Jg2ZCujCIIswOgVI0cNLVucTsDyY6joh73ZBMtGyacV8CzZANuFzYqI7xASZBmpgpxISj1yGqZBgly0JRRTHJ1E8joTr5FoLZAZCAZDZD",
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"
         )
@@ -187,8 +190,7 @@ if __name__ == '__main__':
             countries=["US", "CA", "UA"],
             ad_type="all",
             period="month",
-            keyword="solana",
-            after="c2NyYXBpbmdfY3Vyc29yOk1UYzBOamszTmpRME16b3lORGcyTWpJNU5UUXhOekUwT0RNMQZDZD"
+            keyword="solana"
         )
         print(cursor)
 

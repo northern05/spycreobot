@@ -1,9 +1,9 @@
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.engine import Result
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .schemas import TransactionCreate
-from app.core.models import Transaction, User
+from app.core.models import Transaction
 
 
 async def create(session: AsyncSession, transaction_data: TransactionCreate) -> Transaction | None:
