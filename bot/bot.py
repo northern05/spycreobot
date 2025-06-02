@@ -110,7 +110,7 @@ async def save_wallet(message: types.Message, state: FSMContext):
     result, msg = validate_wallet(address=wallet)
     if result:
         response = requests.post(f"{API_URL}/auth",
-                                 json={"telegram_id": telegram_id, "wallet": wallet})
+                                 json={"telegram_id": str(telegram_id), "wallet": wallet})
         if response.status_code == 200:
             await state.set_state(BotState.show_main_menu)
             await message.answer(
