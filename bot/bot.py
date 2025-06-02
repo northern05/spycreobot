@@ -386,14 +386,14 @@ async def handle_period_selection(callback: types.CallbackQuery, state: FSMConte
 
 @tg_router.message(CreativesState.enter_keywords)
 async def get_creatives(message: types.Message, state: FSMContext):
-    await delete_previous_message(bot, message.chat.id, message.message_id)
+    # await delete_previous_message(bot, message.chat.id, message.message_id)
     # await message.answer("✅ All filters selected! Proceeding...")
     await delete_previous_message(bot, message.chat.id, message.message_id)
     processing_message = await message.answer_animation(animation=GIF_URL,
                                                         caption="Processing your request...")
     telegram_id = message.from_user.id if message.from_user.id != SELF_ID else message.chat.id
     keywords = message.text
-    await state.update_data({"keywords": keywords})
+    await state.update_data({"keyword": keywords})
     data = await state.get_data()
     json = {
         "telegram_id": str(telegram_id),
@@ -402,7 +402,7 @@ async def get_creatives(message: types.Message, state: FSMContext):
         "countries": data.get("countries"),
         "ad_type": data.get("media_types"),
         "period": data.get("period"),
-        "keyword": data.get("keywords"),
+        "keyword": data.get("keyword"),
     }
     response = requests.get(url=f"{API_URL}/creatives", json=json)
     if response.status_code == 402:
@@ -437,53 +437,53 @@ async def get_creatives(message: types.Message, state: FSMContext):
         await message.answer("Something went wrong!")
         await main_menu(event=message)
 
-    @tg_router.callback_query(F.data == "next_ads_search")
-    async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
-        processing_message = await callback.message.answer_animation(animation=GIF_URL,
-                                                                     caption="Processing your request...")
-        state_data = await state.get_data()
-        json = {
-            "telegram_id": str(callback.message.chat.id),
-            "niche_keywords": ["crypto"],
-            "placements": ["facebook", "tiktok", "instagram", "google"],
-            "countries": ["UA"],
-            "ad_type": "all",
-            "period": "month",
-            "keyword": "Solana",
-            "after": state_data.get("after")
-        }
-        response = requests.get(url=f"{API_URL}/creatives", json=json)
-        if response.status_code == 402:
-            await callback.message.answer("You have not enough credits to get creatives! \nTo continue - buy credits!")
-            await show_credits_menu(event=callback, bot=bot)
-        elif response.status_code == 200:
-            data = response.json()
-            await bot.delete_message(
-                chat_id=processing_message.chat.id,
-                message_id=processing_message.message_id
-            )
-            if not data:
-                await callback.message.answer("No ads by your query.", parse_mode='MarkdownV2')
+@tg_router.callback_query(F.data == "next_ads_search")
+async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
+    processing_message = await callback.message.answer_animation(animation=GIF_URL,
+                                                                 caption="Processing your request...")
+    state_data = await state.get_data()
+    json = {
+        "telegram_id": str(callback.message.chat.id),
+        "niche_keywords": state_data.get("niches"),
+        "placements": state_data.get("placements"),
+        "countries": state_data.get("countries"),
+        "ad_type": state_data.get("media_types"),
+        "period": state_data.get("period"),
+        "keyword": state_data.get("keyword"),
+        "after": state_data.get("after")
+    }
+    response = requests.get(url=f"{API_URL}/creatives", json=json)
+    if response.status_code == 402:
+        await callback.message.answer("You have not enough credits to get creatives! \nTo continue - buy credits!")
+        await show_credits_menu(event=callback, bot=bot)
+    elif response.status_code == 200:
+        data = response.json()
+        await bot.delete_message(
+            chat_id=processing_message.chat.id,
+            message_id=processing_message.message_id
+        )
+        if not data:
+            await callback.message.answer("No ads by your query.", parse_mode='MarkdownV2')
 
-            ads = data.get("ads")
-            after = data.get("after")
-            await state.update_data({"after": after})
+        ads = data.get("ads")
+        after = data.get("after")
+        await state.update_data({"after": after})
 
-            for creative in ads:
-                title = escape_markdown(creative.get('title', "Creative with no title"))
-                url = creative.get('url')
-                days_running = creative.get('days_running')
-                msg = f"\n[{title}]({url})" + f"\n *Days running:* {days_running}\n"
-                await callback.message.answer(msg, parse_mode='MarkdownV2', disable_web_page_preview=True)
-            keyboard = InlineKeyboardMarkup(
-                inline_keyboard=[[InlineKeyboardButton(text="Next", callback_data="next_ads_search")],
-                                 [InlineKeyboardButton(text="Main menu", callback_data="main_menu")],
-                                 [InlineKeyboardButton(text="Pin search", callback_data="pin_search")]]
-            )
-            await callback.message.answer("Do you want to get next 10 creatives?", reply_markup=keyboard)
-        else:
-            await callback.message.answer("Something went wrong!")
-            await main_menu(event=callback)
+        for creative in ads:
+            title = escape_markdown(creative.get('title', "Creative with no title"))
+            url = creative.get('url')
+            days_running = creative.get('days_running')
+            msg = f"\n[{title}]({url})" + f"\n *Days running:* {days_running}\n"
+            await callback.message.answer(msg, parse_mode='MarkdownV2', disable_web_page_preview=True)
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="Next", callback_data="next_ads_search")],
+                             [InlineKeyboardButton(text="Main menu", callback_data="main_menu")],
+                             [InlineKeyboardButton(text="Pin search", callback_data="pin_search")]]
+        )
+        await callback.message.answer("Do you want to get next 10 creatives?", reply_markup=keyboard)
+    else:
+        await callback.message.answer("Something went wrong!")
+        await main_menu(event=callback)
 
 
 @tg_router.callback_query(F.data == "pin_search")
@@ -496,7 +496,7 @@ async def pin_search(message: types.Message, state: FSMContext):
         "countries": data.get("countries"),
         "ad_type": data.get("media_types"),
         "period": data.get("period"),
-        "keyword": data.get("keywords"),
+        "keyword": data.get("keyword"),
     }
     response = requests.post(url=f"{API_URL}/pins", json=json, params={"telegram_id": str(telegram_id)})
     if response.status_code == 200:
@@ -577,22 +577,16 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
     ad_type = selected_pin.get("ad_type", "all")  # Default 'all'
     period = selected_pin.get("period", "week")  # Default 'week'
     keyword = selected_pin.get("keyword")
+    data = {
+        "telegram_id": str(callback.from_user.id),
+        "niche_keywords": niche_keywords,
+        "placements": placements,
+        "countries": countries,
+        "ad_type": ad_type,
+        "period": period,
+        "keyword": keyword,
+    }
 
-    try:
-        data = {
-            "telegram_id": str(callback.from_user.id),
-            "niche_keywords": niche_keywords,
-            "placements": placements,
-            "countries": countries,
-            "ad_type": ad_type,
-            "period": period,
-            "keyword": keyword,
-        }
-    except Exception as e:
-        await callback.message.answer("Failed to parse pin data")
-        return
-
-    # Make API call
     response = requests.get(url=f"{API_URL}/creatives", json=data)
 
     await bot.delete_message(callback.message.chat.id, processing_message.message_id)

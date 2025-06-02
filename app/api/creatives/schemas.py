@@ -23,4 +23,4 @@ class CreativeRequest(BaseModel):
     ad_type: str
     period: str
     keyword: str
-    after: str | None = None
+    after: dict | None = None
