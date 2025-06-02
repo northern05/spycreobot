@@ -35,7 +35,7 @@ class FacebookAdsLibraryDriver:
             "week": timedelta(days=7),
             "month": timedelta(days=30),
             "quarter": timedelta(days=90),
-            "half_year": timedelta(days=180)
+            "halfyear": timedelta(days=180)
         }.get(period, timedelta(days=7))
         return (today - delta).strftime("%Y-%m-%d")
 
@@ -100,7 +100,6 @@ class FacebookAdsLibraryDriver:
             limit: int = 10,
             after: Optional[str] = None
     ) -> tuple:
-        period = "half_year" if period == "halfyear" else period
 
         params = {
             "access_token": self.access_token,
