@@ -286,7 +286,7 @@ class FacebookAdsLibraryDriver:
         List[Dict[str, Any]], Optional[Dict[str, Any]]]:
         all_collected_ads: List[Dict[str, Any]] = []
 
-        search_cursor = search_params.pop('search_cursor', None)
+        search_cursor = search_params.pop('after', None)
         if search_cursor:
             current_keyword_combination_index = search_cursor.get('current_keyword_combination_index', 0)
             current_cursor = search_cursor.get('current_cursor', None)
