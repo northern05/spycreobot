@@ -4,7 +4,7 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import List, Optional, Callable, Tuple, Dict, Any
 import itertools
-import hashlib  # Import hashlib for hashing content
+import hashlib
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -109,13 +109,10 @@ class FacebookAdsLibraryDriver:
             countries: Optional[List[str]],
             ad_type: Optional[str],
             period: str,
-            limit: int,  # Limit per API call
+            limit: int,
             after: Optional[str] = None
     ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
-        """
-        Internal helper to search for ads for a single search term/combination.
-        Returns (formatted_ads, next_cursor).
-        """
+
         params = {
             "access_token": self.access_token,
             "search_terms": search_term,
@@ -163,14 +160,11 @@ class FacebookAdsLibraryDriver:
             ad_type: Optional[str],
             period: str,
             keyword: Optional[str],
-            api_call_limit: int,  # Limit per *internal* API call
-            start_combination_index: int,  # To continue overall search
-            start_cursor: Optional[str]  # To continue overall search
+            api_call_limit: int,
+            start_combination_index: int,
+            start_cursor: Optional[str]
     ) -> Tuple[List[Dict[str, Any]], Optional[str], int]:
-        """
-        Generates and searches ads using keyword combinations, managing pagination and term advancement.
-        Returns (ads_chunk, next_cursor_for_term, next_combination_index).
-        """
+
         period = "half_year" if period == "halfyear" else period
 
         base_keywords = []
@@ -178,6 +172,7 @@ class FacebookAdsLibraryDriver:
             base_keywords.append(keyword.lower())
         for niche in niche_keywords:
             base_keywords.extend([kw.lower() for kw in NICHE_KEYWORDS.get(niche, [])])
+
         base_keywords = sorted(list(set(base_keywords)))
 
         search_term_combinations = []
@@ -198,7 +193,7 @@ class FacebookAdsLibraryDriver:
 
         if not search_term_combinations:
             logging.info("No valid search terms generated.")
-            return [], None, -1  # Indicates no more combinations
+            return [], None, -1
 
         current_combination_index = start_combination_index
         current_cursor = start_cursor
@@ -228,7 +223,6 @@ class FacebookAdsLibraryDriver:
         return [], None, -1
 
     def _format_ad(self, ad: dict, placements: Optional[List[str]]) -> Optional[Dict[str, Any]]:
-        # Define the specific title to exclude
         EXCLUDED_TITLE = "This content was removed because it didn't follow our Advertising Standards."
 
         if not ad.get("id"):
@@ -239,10 +233,7 @@ class FacebookAdsLibraryDriver:
             return None
 
         try:
-            # Safely get the title, defaulting to an empty string to prevent errors
             title = ad.get("ad_creative_link_titles", [""])[0] if ad.get("ad_creative_link_titles") else ""
-
-            # NEW: Exclude ads with the specific title
             if title == EXCLUDED_TITLE:
                 logging.info(f"Excluding ad ID {ad.get('id')} due to removed content title.")
                 return None
@@ -270,14 +261,13 @@ class FacebookAdsLibraryDriver:
             days_running = (end_dt - start_dt).days if start_dt and end_dt else 0
             if days_running < 0: days_running = 0
 
-            # Use the already obtained 'title' variable
             description = ad.get("ad_creative_link_descriptions", [""])[0] if ad.get(
                 "ad_creative_link_descriptions") else ""
             body = ad.get("ad_creative_bodies", [""])[0] if ad.get("ad_creative_bodies") else ""
 
             return {
                 "id": ad["id"],
-                "title": title,  # Use the title that was already checked
+                "title": title,
                 "description": description,
                 "body": body,
                 "platforms": ad_platforms,
@@ -292,78 +282,111 @@ class FacebookAdsLibraryDriver:
     async def close(self):
         await self.client.aclose()
 
-    async def get_unique_ads(self, target_limit: int = 10, **search_params: Any) -> List[Dict[str, Any]]:
+    async def get_ads_page(self, page_size: int = 10, **search_params: Any) -> Tuple[
+        List[Dict[str, Any]], Optional[Dict[str, Any]]]:
         """
-        Fetches a specified target_limit of unique ads across multiple search term combinations
-        and pagination pages. Ads are de-duplicated by Facebook ID and content hash.
+        Fetches a single 'page' of unique ads (up to page_size) and returns a cursor
+        for the next page. This function manages the internal state of combinations and pagination.
 
         Args:
-            target_limit: The total number of unique ads to collect.
+            page_size: The desired number of unique ads to return for this "page".
             **search_params: Parameters for the ad search (e.g., niche_keywords, placements,
-                             countries, ad_type, period, keyword, limit).
-                             'limit' here will be passed as api_call_limit to internal methods.
+                             countries, ad_type, period, keyword).
+                             It can also include 'search_cursor' from a previous call
+                             to continue the search.
 
         Returns:
-            A list of dictionaries, where each dictionary represents a unique ad.
+            A tuple:
+            - A list of dictionaries, where each dictionary represents a unique ad.
+            - A dictionary containing the 'search_cursor' for the next page,
+              or None if all ads are exhausted.
+              The 'search_cursor' will contain:
+                - 'current_keyword_combination_index': The index of the combination being processed.
+                - 'current_cursor': The Facebook API 'after' cursor for that combination.
+                - 'seen_ad_ids': Set of ad IDs seen so far (for de-duplication).
+                - 'seen_content_hashes': Set of content hashes seen so far (for de-duplication).
         """
         all_collected_ads: List[Dict[str, Any]] = []
-        seen_ad_ids: set = set()
-        seen_content_hashes: set = set()
 
-        # Extract initial state from search_params, clean up for passing to _orchestrate_search_terms
-        current_keyword_combination_index = search_params.pop('start_combination_index', 0)
-        current_cursor = search_params.pop('start_cursor', None)
-        api_call_limit = search_params.pop('limit', 10)  # API call limit (e.g., 10 or 25 ads per FB request)
+        # Load state from search_params or initialize
+        search_cursor = search_params.pop('search_cursor', None)
+        if search_cursor:
+            current_keyword_combination_index = search_cursor.get('current_keyword_combination_index', 0)
+            current_cursor = search_cursor.get('current_cursor', None)
+            seen_ad_ids = set(search_cursor.get('seen_ad_ids', []))
+            seen_content_hashes = set(search_cursor.get('seen_content_hashes', []))
+            logging.info(
+                f"Resuming search from combination {current_keyword_combination_index}, cursor {current_cursor}, seen {len(seen_ad_ids)} ads.")
+        else:
+            current_keyword_combination_index = 0
+            current_cursor = None
+            seen_ad_ids = set()
+            seen_content_hashes = set()
+            logging.info("Starting new unique ad search from scratch.")
 
-        logging.info(f"Starting to fetch {target_limit} unique ads with API limit {api_call_limit} per call.")
+        # We will fetch 'limit' ads per internal API call until we hit 'page_size' unique ads.
+        # It's usually good to request slightly more from Facebook than your page_size
+        # to account for internal filtering.
+        api_fetch_limit = max(page_size, 25)  # Fetch at least 25 per API call, or page_size if larger
 
-        while len(all_collected_ads) < target_limit:
+        while len(all_collected_ads) < page_size:
             try:
+                # Call _orchestrate_search_terms, which gets a chunk of ads from current state
                 ads_chunk, next_cursor_for_term, next_combination_index = await self._orchestrate_search_terms(
-                    api_call_limit=api_call_limit,  # Pass the specific API call limit here
+                    api_call_limit=api_fetch_limit,
                     start_combination_index=current_keyword_combination_index,
                     start_cursor=current_cursor,
-                    **search_params  # Pass all other search parameters
+                    **search_params  # Pass other original search parameters
                 )
 
                 if not ads_chunk and next_combination_index == -1:
-                    logging.info("No more ads available from any search combination.")
-                    break  # Exit the while loop if all possibilities exhausted
+                    logging.info("All search terms and pages exhausted. Cannot get more ads.")
+                    break  # No more ads available, stop
 
                 for ad in ads_chunk:
-                    # Create a content hash for soft de-duplication
                     content_string = f"{ad.get('title', '')}|{ad.get('description', '')}|{ad.get('body', '')}"
                     content_hash = hashlib.md5(content_string.encode('utf-8')).hexdigest()
 
-                    # Check for uniqueness based on both Facebook ID and content hash
                     if ad["id"] not in seen_ad_ids and content_hash not in seen_content_hashes:
                         all_collected_ads.append(ad)
                         seen_ad_ids.add(ad["id"])
                         seen_content_hashes.add(content_hash)
-                        if len(all_collected_ads) >= target_limit:
-                            logging.info(f"Target limit of {target_limit} ads reached.")
-                            return all_collected_ads[:target_limit]  # Return exactly target_limit ads
+                        if len(all_collected_ads) >= page_size:
+                            break  # Stop collecting if we reached the target page_size for this call
 
-                # --- Pagination and Combination Advancement Logic ---
-                if next_cursor_for_term:
-                    # More pages for the current combination term
-                    current_cursor = next_cursor_for_term
-                    current_keyword_combination_index = next_combination_index  # Stay on current combination index
-                    logging.info(
-                        f"Continuing pagination for combination index {current_keyword_combination_index}. Next cursor: {current_cursor}")
-                else:
-                    # Current combination term exhausted, move to the next combination
-                    current_keyword_combination_index = next_combination_index + 1
-                    current_cursor = None  # Reset cursor for the new combination term
-                    logging.info(
-                        f"Finished combination index {next_combination_index}. Moving to next: {current_keyword_combination_index}")
+                # Update current state for the next internal iteration
+                current_cursor = next_cursor_for_term
+                current_keyword_combination_index = next_combination_index  # This will be -1 if exhausted
+
+                # If the current internal search term is exhausted (cursor is None) AND
+                # the next_combination_index signals no more terms, then we've truly exhausted all possibilities
+                if not next_cursor_for_term and next_combination_index == -1:
+                    logging.info("Exhausted all combinations and pages internally.")
+                    break  # No more ads to fetch
 
             except Exception as e:
-                logging.error(f"Error during overall ad fetching: {e}. Stopping collection.")
+                logging.error(f"Error during overall ad fetching in get_ads_page: {e}. Stopping collection.")
                 break
 
-        logging.info(f"Collected {len(all_collected_ads)} ads, which is less than the target of {target_limit}.")
-        return all_collected_ads
+        # Prepare the cursor for the next call
+        next_search_cursor = None
+        # Only provide a next_search_cursor if we might have more ads available
+        if len(all_collected_ads) >= page_size:
+            # We collected enough for this page, so the next state is where we left off
+            next_search_cursor = {
+                'current_keyword_combination_index': current_keyword_combination_index,
+                'current_cursor': current_cursor,
+                'seen_ad_ids': list(seen_ad_ids),
+                # Convert sets to lists for JSON serialization (if stored in DB/Redis)
+                'seen_content_hashes': list(seen_content_hashes)
+            }
+        elif not ads_chunk and next_combination_index == -1 and len(all_collected_ads) < page_size:
+            # We explicitly broke because all ads were exhausted, no next page
+            logging.info("All available unique ads collected. No further pages.")
+            next_search_cursor = None  # No next page
+
+        return all_collected_ads, next_search_cursor
+
 
 if __name__ == '__main__':
     async def run_main():
@@ -375,31 +398,51 @@ if __name__ == '__main__':
         )
 
         try:
-            print("Starting combined and unique ad search...")
-            # Example search for 'crypto' niche, and additional keyword 'solana'
-            final_ads_list = await driver.get_unique_ads(  # Call the new method directly
-                target_limit=10,  # Request a total of 10 unique ads
+            print("Starting paginated unique ad search...")
+
+            # --- First Page (e.g., 5 ads per page) ---
+            print("\n--- Page 1 ---")
+            page_size = 5  # Request 5 ads per page
+            ads_page1, search_cursor_page1 = await driver.get_ads_page(
+                page_size=page_size,
                 niche_keywords=["crypto"],
                 placements=["facebook", "instagram"],
                 countries=["US", "CA"],
                 ad_type="all",
                 period="month",
-                keyword="solana"
+                keyword="solana",
+                # No 'search_cursor' for the first call
             )
 
-            print(f"\nFinal collected {len(final_ads_list)} unique ads (up to target_limit).")
-            for i, ad in enumerate(final_ads_list):
-                print(f"--- Ad {i + 1} ---")
-                print(f"  ID: {ad['id']}")
-                print(f"  Title: {ad.get('title')}")
-                print(f"  URL: {ad.get('url')}")
-                print(f"  Platforms: {', '.join(ad.get('platforms'))}")
-                print(f"  Days Running: {ad.get('days_running')}")
-                print("-" * 20)
+            print(f"Collected {len(ads_page1)} ads for Page 1.")
+            for i, ad in enumerate(ads_page1):
+                print(f"  Ad {i + 1} ID: {ad['id']}")
+            print(f"Next search cursor for Page 1: {'exists' if search_cursor_page1 else 'None'}")
+
+            # --- Second Page (if cursor exists) ---
+            if search_cursor_page1:
+                print("\n--- Page 2 ---")
+                ads_page2, search_cursor_page2 = await driver.get_ads_page(
+                    page_size=page_size,
+                    search_cursor=search_cursor_page1,  # Pass the cursor from the previous page
+                    niche_keywords=["crypto"],  # Re-pass original search parameters
+                    placements=["facebook", "instagram"],
+                    countries=["US", "CA"],
+                    ad_type="all",
+                    period="month",
+                    keyword="solana",
+                )
+                print(f"Collected {len(ads_page2)} ads for Page 2.")
+                for i, ad in enumerate(ads_page2):
+                    print(f"  Ad {i + 1} ID: {ad['id']}")
+                print(f"Next search cursor for Page 2: {'exists' if search_cursor_page2 else 'None'}")
+
+            # You can continue calling get_ads_page in a loop until search_cursor is None
 
         except Exception as e:
             logging.error(f"Error during main execution: {e}")
         finally:
             await driver.close()
+
 
     asyncio.run(run_main())

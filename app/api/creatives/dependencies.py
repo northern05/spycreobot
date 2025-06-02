@@ -11,7 +11,7 @@ async def get_creatives(
         creative_request: CreativeRequest,
         session: AsyncSession = Depends(db_helper.scoped_session_dependency),
 ) -> dict:
-    ads, cursor = await fb_driver.get_unique_ads(**creative_request.dict(exclude={"telegram_id"}))
+    ads, cursor = await fb_driver.get_ads_page(**creative_request.dict(exclude={"telegram_id"}))
     result = [CreativeResponse.model_validate(ad) for ad in ads]
     if result:
         payment = await credits_dp.process_users_credits(session=session, telegram_id=creative_request.telegram_id)
