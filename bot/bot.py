@@ -415,7 +415,7 @@ async def get_creatives(message: types.Message, state: FSMContext):
             message_id=processing_message.message_id
         )
         if not data.get("ads"):
-            await message.answer("No ads by your query.", parse_mode='MarkdownV2')
+            await message.answer("No ads by your query", parse_mode='MarkdownV2')
 
         ads = data.get("ads")
         after = data.get("after")
@@ -514,7 +514,7 @@ async def get_fav_creatives(callback: types.CallbackQuery, state: FSMContext):
     if response.status_code == 200:
         data = response.json()
         if not data:
-            await callback.message.answer("No favorite pins found.")
+            await callback.message.answer("No favorite pins found")
             return
         user_pins_data = {}
 
@@ -567,7 +567,7 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
     selected_pin = user_pins.get(pin_id_from_callback)
 
     if not selected_pin:
-        await callback.message.answer("Error: Pin data not found. Please try again or start over.")
+        await callback.message.answer("Error: Pin data not found \n Please try again or start over")
         await callback.answer()
         return
 
@@ -589,7 +589,7 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
             "keyword": keyword,
         }
     except Exception as e:
-        await callback.message.answer("Failed to parse pin data.")
+        await callback.message.answer("Failed to parse pin data")
         return
 
     # Make API call
