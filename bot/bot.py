@@ -305,7 +305,7 @@ async def submit_placements(callback: types.CallbackQuery, state: FSMContext):
     selected = user_selection_state.get(callback.from_user.id, {}).get("placements", [])
     await state.update_data({"placements": selected})
     await state.set_state(CreativesState.choose_countries)
-    countries = ["US", "UA", "DE", "FR", "UK"]
+    countries = ["US", "UA", "DE", "FR", "GB", "CA"]
     buttons = [InlineKeyboardButton(text=country, callback_data=f"country:{country.lower()}") for country in countries]
     rows = []
     for i in range(0, len(buttons), 2):
