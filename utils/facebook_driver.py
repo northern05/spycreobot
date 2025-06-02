@@ -135,13 +135,18 @@ class FacebookAdsLibraryDriver:
 
         formatted_ads = []
         for ad in raw_ads:
-            formatted = self._format_ad(ad, placements)
+            formatted = self._format_ad(ad, placements, keyword)
             if formatted:
                 formatted_ads.append(formatted)
 
         return formatted_ads[:limit], next_cursor
 
-    def _format_ad(self, ad: dict, placements: Optional[List[str]]) -> Optional[dict]:
+    def _format_ad(
+            self,
+            ad: dict,
+            placements: Optional[List[str]],
+            keyword: Optional[str] = None
+    ) -> Optional[dict]:
         if not ad.get("ad_snapshot_url"):  # ad is likely deleted or restricted
             return None
 
@@ -161,6 +166,10 @@ class FacebookAdsLibraryDriver:
         title = ad.get("ad_creative_link_titles", ["No title"])[0]
         description = ad.get("ad_creative_link_descriptions", [""])[0]
         body = ad.get("ad_creative_bodies", [""])[0]
+        content = f"{title} {description} {body}".lower()
+
+        if keyword and keyword.lower() not in content:
+            return None
 
         return {
             "title": title,
@@ -169,7 +178,7 @@ class FacebookAdsLibraryDriver:
             "platforms": ad.get("publisher_platforms", []),
             "url": ad.get("ad_snapshot_url"),
             "days_running": days_running,
-            "content": f"{title} {description} {body}".lower()
+            "content": content
         }
 
     async def close(self):
