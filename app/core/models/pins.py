@@ -18,7 +18,7 @@ class PeriodEnum(str, Enum):
     week = "week"
     month = "month"
     quarter = "quarter"
-    half_year = "half_year"
+    halfyear = "halfyear"
 
 
 class Pin(Base):
