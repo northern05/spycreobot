@@ -284,31 +284,8 @@ class FacebookAdsLibraryDriver:
 
     async def get_ads_page(self, page_size: int = 10, **search_params: Any) -> Tuple[
         List[Dict[str, Any]], Optional[Dict[str, Any]]]:
-        """
-        Fetches a single 'page' of unique ads (up to page_size) and returns a cursor
-        for the next page. This function manages the internal state of combinations and pagination.
-
-        Args:
-            page_size: The desired number of unique ads to return for this "page".
-            **search_params: Parameters for the ad search (e.g., niche_keywords, placements,
-                             countries, ad_type, period, keyword).
-                             It can also include 'search_cursor' from a previous call
-                             to continue the search.
-
-        Returns:
-            A tuple:
-            - A list of dictionaries, where each dictionary represents a unique ad.
-            - A dictionary containing the 'search_cursor' for the next page,
-              or None if all ads are exhausted.
-              The 'search_cursor' will contain:
-                - 'current_keyword_combination_index': The index of the combination being processed.
-                - 'current_cursor': The Facebook API 'after' cursor for that combination.
-                - 'seen_ad_ids': Set of ad IDs seen so far (for de-duplication).
-                - 'seen_content_hashes': Set of content hashes seen so far (for de-duplication).
-        """
         all_collected_ads: List[Dict[str, Any]] = []
 
-        # Load state from search_params or initialize
         search_cursor = search_params.pop('search_cursor', None)
         if search_cursor:
             current_keyword_combination_index = search_cursor.get('current_keyword_combination_index', 0)
@@ -324,24 +301,25 @@ class FacebookAdsLibraryDriver:
             seen_content_hashes = set()
             logging.info("Starting new unique ad search from scratch.")
 
-        # We will fetch 'limit' ads per internal API call until we hit 'page_size' unique ads.
-        # It's usually good to request slightly more from Facebook than your page_size
-        # to account for internal filtering.
-        api_fetch_limit = max(page_size, 25)  # Fetch at least 25 per API call, or page_size if larger
+        api_fetch_limit = max(page_size, 25)
+
+        # Initialize ads_chunk and next_combination_index before the loop/try block
+        ads_chunk = []
+        next_combination_index = current_keyword_combination_index  # Default to current, will be updated
 
         while len(all_collected_ads) < page_size:
             try:
-                # Call _orchestrate_search_terms, which gets a chunk of ads from current state
                 ads_chunk, next_cursor_for_term, next_combination_index = await self._orchestrate_search_terms(
                     api_call_limit=api_fetch_limit,
                     start_combination_index=current_keyword_combination_index,
                     start_cursor=current_cursor,
-                    **search_params  # Pass other original search parameters
+                    **search_params
                 )
 
+                # This check is now safe because ads_chunk is always defined
                 if not ads_chunk and next_combination_index == -1:
                     logging.info("All search terms and pages exhausted. Cannot get more ads.")
-                    break  # No more ads available, stop
+                    break
 
                 for ad in ads_chunk:
                     content_string = f"{ad.get('title', '')}|{ad.get('description', '')}|{ad.get('body', '')}"
@@ -352,38 +330,32 @@ class FacebookAdsLibraryDriver:
                         seen_ad_ids.add(ad["id"])
                         seen_content_hashes.add(content_hash)
                         if len(all_collected_ads) >= page_size:
-                            break  # Stop collecting if we reached the target page_size for this call
+                            break
 
-                # Update current state for the next internal iteration
                 current_cursor = next_cursor_for_term
-                current_keyword_combination_index = next_combination_index  # This will be -1 if exhausted
+                current_keyword_combination_index = next_combination_index
 
-                # If the current internal search term is exhausted (cursor is None) AND
-                # the next_combination_index signals no more terms, then we've truly exhausted all possibilities
                 if not next_cursor_for_term and next_combination_index == -1:
                     logging.info("Exhausted all combinations and pages internally.")
-                    break  # No more ads to fetch
+                    break
 
             except Exception as e:
                 logging.error(f"Error during overall ad fetching in get_ads_page: {e}. Stopping collection.")
+                # If an error occurs, we need to make sure we don't try to access ads_chunk
+                # in the loop condition if it wasn't assigned. The break will handle it.
                 break
 
-        # Prepare the cursor for the next call
         next_search_cursor = None
-        # Only provide a next_search_cursor if we might have more ads available
         if len(all_collected_ads) >= page_size:
-            # We collected enough for this page, so the next state is where we left off
             next_search_cursor = {
                 'current_keyword_combination_index': current_keyword_combination_index,
                 'current_cursor': current_cursor,
                 'seen_ad_ids': list(seen_ad_ids),
-                # Convert sets to lists for JSON serialization (if stored in DB/Redis)
                 'seen_content_hashes': list(seen_content_hashes)
             }
         elif not ads_chunk and next_combination_index == -1 and len(all_collected_ads) < page_size:
-            # We explicitly broke because all ads were exhausted, no next page
             logging.info("All available unique ads collected. No further pages.")
-            next_search_cursor = None  # No next page
+            next_search_cursor = None
 
         return all_collected_ads, next_search_cursor
 
