@@ -9,7 +9,7 @@ import hashlib
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 NICHE_KEYWORDS = {
-    "gambling": ["casino", "slots", "betting", "poker", "blackjack", "online casino", "sports betting"],
+    "gambling": ["casino", "slots", "betting", "poker", "blackjack", "sport", "spin", "freespin"],
     "crypto": ["crypto", "bitcoin", "ethereum", "nft", "web3", "blockchain", "cryptocurrency"],
     "nutra": ["supplement", "weight loss", "keto", "skincare", "diet pills", "vitamins", "health supplement"],
     "dating": ["dating app", "match", "love", "singles", "romance", "online dating", "dating site"],
@@ -151,6 +151,59 @@ class FacebookAdsLibraryDriver:
         except Exception as e:
             logging.error(f"Error fetching ads for term '{search_term}': {e}")
             return [], None
+
+    async def search_ads_or(
+            self,
+            niche_keywords: List[str],
+            placements: Optional[List[str]] = None,
+            countries: Optional[List[str]] = None,
+            ad_type: Optional[str] = None,
+            period: str = "week",
+            keyword: Optional[str] = None,
+            limit: int = 10,
+    ) -> List[Dict[str, Any]]:
+        keywords = []
+        if keyword:
+            keywords.append(keyword.lower())
+        for niche in niche_keywords:
+            keywords.extend([kw.lower() for kw in NICHE_KEYWORDS.get(niche, [])])
+
+        keywords = sorted(list(set(keywords)))
+
+        params = {
+            "access_token": self.access_token,
+            "search_terms": ",".join(keywords),
+            "ad_reached_countries": ",".join(countries) if countries else None,
+            "ad_active_status": "ALL",
+            "media_type": ad_type if ad_type else "ALL",
+            "fields": ",".join([
+                "ad_creative_bodies",
+                "ad_creative_link_titles",
+                "ad_creative_link_descriptions",
+                "ad_snapshot_url",
+                "publisher_platforms",
+                "ad_delivery_start_time",
+                "ad_delivery_stop_time",
+                "id"
+            ]),
+            "limit": limit,
+            "start_date": self._calculate_date_filter(period),
+        }
+
+        params = {k: v for k, v in params.items() if v}
+
+        try:
+            data = await self._fetch_ads(params)
+            raw_ads = data.get("data", [])
+            formatted_ads = []
+            for ad in raw_ads:
+                formatted = self._format_ad(ad, placements)
+                if formatted:
+                    formatted_ads.append(formatted)
+            return formatted_ads
+        except Exception as e:
+            logging.error(f"OR search failed: {e}")
+            return []
 
     async def _orchestrate_search_terms(
             self,

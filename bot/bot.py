@@ -130,8 +130,7 @@ async def save_wallet(message: types.Message, state: FSMContext):
 async def main_menu(event: types.Message | types.CallbackQuery):
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Credits", callback_data="credits_menu"),
-             InlineKeyboardButton(text="Favourites", callback_data="favourite_menu")],
+            [InlineKeyboardButton(text="Credits", callback_data="credits_menu")],
             [InlineKeyboardButton(text="Get creatives", callback_data="get_creatives"),
              InlineKeyboardButton(text="Pinned", callback_data="get_fav_creatives")]
         ]
@@ -304,38 +303,12 @@ async def toggle_placement(callback: types.CallbackQuery, state: FSMContext):
 async def submit_placements(callback: types.CallbackQuery, state: FSMContext):
     selected = user_selection_state.get(callback.from_user.id, {}).get("placements", [])
     await state.update_data({"placements": selected})
+    await callback.answer("Enter geo code: ")
     await state.set_state(CreativesState.choose_countries)
-    countries = ["US", "UA", "DE", "FR", "GB", "CA"]
-    buttons = [InlineKeyboardButton(text=country, callback_data=f"country:{country.lower()}") for country in countries]
-    rows = []
-    for i in range(0, len(buttons), 2):
-        if i + 1 < len(buttons):
-            rows.append([buttons[i], buttons[i + 1]])
-        else:
-            rows.append([buttons[i]])  # Add the last element as a single button
-    rows.append([InlineKeyboardButton(text="✅ Submit", callback_data="country_submit")])
-    user_selection_state[callback.from_user.id]["countries"] = []
-    await callback.message.answer("Choose countries:", reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
-    await delete_previous_message(bot, callback.message.chat.id, callback.message.message_id)
+
 
 
 @tg_router.callback_query(CreativesState.choose_countries)
-async def toggle_country(callback: types.CallbackQuery, state: FSMContext):
-    if callback.data.startswith("country_submit"):
-        await submit_countries(callback, state)
-        return
-    user_id = callback.from_user.id
-    country = callback.data.split(":")[1].upper()
-    selected = user_selection_state[user_id].get("countries", [])
-    if country in selected:
-        selected.remove(country)
-    else:
-        selected.append(country)
-    user_selection_state[user_id]["countries"] = selected
-    await callback.answer(f"Selected countries: {', '.join(selected)}")
-
-
-@tg_router.callback_query(F.data == "country_submit")
 async def submit_countries(callback: types.CallbackQuery, state: FSMContext):
     selected = user_selection_state.get(callback.from_user.id, {}).get("countries", [])
     await state.update_data({"countries": selected})
@@ -473,7 +446,7 @@ async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
             title = escape_markdown(creative.get('title', "Creative with no title"))
             url = creative.get('url')
             days_running = creative.get('days_running')
-            msg = f"\n[{title}]({url})" + f"\n *Days running:* {days_running}\n"
+            msg = f"\n[{title }]({url})" + f"\n *Days running:* {days_running}\n"
             await callback.message.answer(msg, parse_mode='MarkdownV2', disable_web_page_preview=True)
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text="Next", callback_data="next_ads_search")],
