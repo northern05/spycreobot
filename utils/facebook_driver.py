@@ -106,7 +106,7 @@ class FacebookAdsLibraryDriver:
             self,
             search_term: str,
             placements: Optional[List[str]],
-            countries: Optional[List[str]],
+            countries: Optional[str],
             ad_type: Optional[str],
             period: str,
             limit: int,
@@ -116,7 +116,7 @@ class FacebookAdsLibraryDriver:
         params = {
             "access_token": self.access_token,
             "search_terms": search_term,
-            "ad_reached_countries": ",".join(countries) if countries else None,
+            "ad_reached_countries": countries,
             "ad_active_status": "ALL",
             "media_type": ad_type if ad_type else "ALL",
             "fields": ",".join([
@@ -156,7 +156,7 @@ class FacebookAdsLibraryDriver:
             self,
             niche_keywords: List[str],
             placements: Optional[List[str]] = None,
-            countries: Optional[List[str]] = None,
+            countries: Optional[str] = None,
             ad_type: Optional[str] = None,
             period: str = "week",
             keyword: Optional[str] = None,
@@ -173,7 +173,7 @@ class FacebookAdsLibraryDriver:
         params = {
             "access_token": self.access_token,
             "search_terms": ",".join(keywords),
-            "ad_reached_countries": ",".join(countries) if countries else None,
+            "ad_reached_countries": countries,
             "ad_active_status": "ALL",
             "media_type": ad_type if ad_type else "ALL",
             "fields": ",".join([
@@ -209,7 +209,7 @@ class FacebookAdsLibraryDriver:
             self,
             niche_keywords: List[str],
             placements: Optional[List[str]],
-            countries: Optional[List[str]],
+            countries: Optional[str],
             ad_type: Optional[str],
             period: str,
             keyword: Optional[str],

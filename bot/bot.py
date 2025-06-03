@@ -306,24 +306,25 @@ async def submit_placements(callback: types.CallbackQuery, state: FSMContext):
     selected = user_selection_state.get(callback.from_user.id, {}).get("placements", [])
     await state.update_data({"placements": selected})
     await delete_previous_message(bot, callback.message.chat.id, callback.message.message_id)
-    await callback.message.answer("Enter geo code: ")
+    await callback.message.answer("🌍 Enter geo code:")
     await state.set_state(CreativesState.choose_countries)
 
 
-@tg_router.callback_query(CreativesState.choose_countries)
-async def submit_countries(callback: types.CallbackQuery, state: FSMContext):
-    selected = user_selection_state.get(callback.from_user.id, {}).get("countries", [])
-    if 2 > len(selected) > 4:
-        await callback.answer("You enter wrong geo code, please enter right geo code!")
-        await submit_placements(callback, state)
-    await state.update_data({"countries": selected})
+@tg_router.message(CreativesState.choose_countries)
+async def submit_countries(message: types.Message, state: FSMContext):
+    text = message.text.strip().upper()
+    if len(text) < 2 or len(text) > 4:
+        await message.answer("❌ Wrong geo code format. Please enter valid country code (e.g. US,CA,UA).")
+        return
+    await delete_previous_message(bot, message.chat.id, message.message_id)
+    await state.update_data({"countries": text})
     await state.set_state(CreativesState.choose_type)
     types_ = ["image", "video", "meme", "all"]
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[[InlineKeyboardButton(text=t.capitalize(), callback_data=f"media:{t}") for t in types_]]
     )
-    await callback.message.answer("Choose ad types:", reply_markup=keyboard)
-    await delete_previous_message(bot, callback.message.chat.id, callback.message.message_id)
+    await message.answer("Choose ad types:", reply_markup=keyboard)
+    await delete_previous_message(bot, message.chat.id, message.message_id)
 
 
 @tg_router.callback_query(CreativesState.choose_type)

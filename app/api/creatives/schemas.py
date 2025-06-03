@@ -19,7 +19,7 @@ class CreativeRequest(BaseModel):
     telegram_id: str
     niche_keywords: list
     placements: list
-    countries: list
+    countries: str
     ad_type: str
     period: str
     keyword: str
