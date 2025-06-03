@@ -41,16 +41,16 @@ async def save_pin(
 
 
 @router.delete(
-    "",
+    "{pin_id}",
     status_code=status.HTTP_200_OK,
     response_model=dict,
 )
 async def delete_pin(
-        result: list = Depends(dependencies.delete_pin)
+        result: dict = Depends(dependencies.delete_pin)
 ):
     """
     Endpoint to delete users pins
     :param session: session to connect to database
-    :return: list creatives
+    :return: dict with result
     """
     return result

@@ -1,4 +1,5 @@
-from fastapi import Depends
+from typing import Annotated
+from fastapi import Depends, Path
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .schemas import PinCreate, Pin, PinResponse
@@ -36,7 +37,7 @@ async def get_users_pins(
 
 
 async def delete_pin(
-        pin_id: int,
+        pin_id: Annotated[int, Path],
         session: AsyncSession = Depends(db_helper.scoped_session_dependency),
 ):
     await pins_crud.delete_pin(pin_id=pin_id, session=session)
