@@ -305,9 +305,9 @@ async def toggle_placement(callback: types.CallbackQuery, state: FSMContext):
 async def submit_placements(callback: types.CallbackQuery, state: FSMContext):
     selected = user_selection_state.get(callback.from_user.id, {}).get("placements", [])
     await state.update_data({"placements": selected})
-    await callback.answer("Enter geo code: ")
+    await delete_previous_message(bot, callback.message.chat.id, callback.message.message_id)
+    await callback.message.answer("Enter geo code: ")
     await state.set_state(CreativesState.choose_countries)
-    # await delete_previous_message(bot, callback.message.chat.id, callback.message.message_id)
 
 
 @tg_router.callback_query(CreativesState.choose_countries)
