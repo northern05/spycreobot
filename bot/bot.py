@@ -99,8 +99,10 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
     await state.clear()
     await state.set_state(BotState.entering_wallet)
     await message.answer(
-        "Hi! I am a robust ad spy tool designed specifically for marketers, ad creators, and e-commerce sellers. With BigSpy, users can gain deep insights into market trends, optimize ad creatives, and gain a competitive edge.")
-    await message.answer("Enter your crypto-wallet to authorize:")
+        "Hi! I am a robust ad spy tool designed specifically for marketers, ad creators, and e-commerce sellers. "
+        "With BigSpy, users can gain deep insights into market trends, optimize ad creatives, and gain a competitive edge.")
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Already added", callback_data="main_menu")]])
+    await message.answer("Enter your crypto-wallet to authorize:", reply_markup=keyboard)
 
 
 @tg_router.message(BotState.entering_wallet)
