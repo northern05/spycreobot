@@ -41,7 +41,7 @@ async def save_pin(
 
 
 @router.delete(
-    "{pin_id}",
+    "/{pin_id}",
     status_code=status.HTTP_200_OK,
     response_model=dict,
 )
