@@ -608,7 +608,7 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
 @tg_router.callback_query(F.data.startswith("pin_delete:"))
 async def delete_saved_pin(callback: types.CallbackQuery, state: FSMContext):
     pin_id_from_callback = callback.data.split(":")[1]
-    response = requests.get(url=f"{API_URL}/pins/{pin_id_from_callback}")
+    response = requests.delete(url=f"{API_URL}/pins/{pin_id_from_callback}")
     if response.status_code == 200:
         await callback.message.answer("Search successfully deleted!")
     else:
