@@ -16,4 +16,4 @@ class PinCreate(Pin):
 
 
 class PinResponse(Pin):
-    pass
+    id: int

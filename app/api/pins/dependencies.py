@@ -33,3 +33,11 @@ async def get_users_pins(
         telegram_id=telegram_id
     )
     return [PinResponse.from_orm(pin) for pin in result]
+
+
+async def delete_pin(
+        pin_id: int,
+        session: AsyncSession = Depends(db_helper.scoped_session_dependency),
+):
+    await pins_crud.delete_pin(pin_id=pin_id, session=session)
+    return {"ok": True}

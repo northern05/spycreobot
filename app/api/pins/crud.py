@@ -25,3 +25,17 @@ async def get_users_pins(session: AsyncSession, telegram_id: str) -> list[Pin]:
     result: Result = await session.execute(stmt)
     users_pins = result.scalars().all()
     return list(users_pins)
+
+
+async def delete_pin(
+        session: AsyncSession,
+        pin_id: int,
+) -> None:
+    stmt = (
+        select(Pin)
+        .filter(Pin.id == pin_id)
+    )
+    result: Result = await session.execute(stmt)
+    pin = result.scalars().first()
+    await session.delete(pin)
+    await session.commit()

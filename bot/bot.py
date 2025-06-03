@@ -131,8 +131,8 @@ async def main_menu(event: types.Message | types.CallbackQuery):
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="Credits", callback_data="credits_menu")],
-            [InlineKeyboardButton(text="Get creatives", callback_data="get_creatives"),
-             InlineKeyboardButton(text="Pinned", callback_data="get_fav_creatives")]
+            [InlineKeyboardButton(text="Get creatives", callback_data="get_creatives")],
+            [InlineKeyboardButton(text="Pinned", callback_data="get_fav_creatives")]
         ]
     )
     if isinstance(event, types.Message):
@@ -305,7 +305,7 @@ async def submit_placements(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data({"placements": selected})
     await callback.answer("Enter geo code: ")
     await state.set_state(CreativesState.choose_countries)
-
+    # await delete_previous_message(bot, callback.message.chat.id, callback.message.message_id)
 
 
 @tg_router.callback_query(CreativesState.choose_countries)
@@ -395,11 +395,11 @@ async def get_creatives(message: types.Message, state: FSMContext):
         await state.update_data({"after": after})
 
         for creative in ads:
-            title = escape_markdown(creative.get('title', "Creative with no title"))
+            # title = escape_markdown(creative.get('title', "Creative with no title"))
             url = creative.get('url')
-            days_running = creative.get('days_running')
-            msg = f"\n[{title}]({url})" + f"\n *Days running:* {days_running}\n"
-            await message.answer(msg, parse_mode='MarkdownV2', disable_web_page_preview=True)
+            # days_running = creative.get('days_running')
+            # msg = f"\n[{title}]({url})" + f"\n *Days running:* {days_running}\n"
+            await message.answer(url)
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text="Next", callback_data="next_ads_search")],
                              [InlineKeyboardButton(text="Main menu", callback_data="main_menu")],
@@ -409,6 +409,7 @@ async def get_creatives(message: types.Message, state: FSMContext):
     else:
         await message.answer("Something went wrong!")
         await main_menu(event=message)
+
 
 @tg_router.callback_query(F.data == "next_ads_search")
 async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
@@ -443,11 +444,11 @@ async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
         await state.update_data({"after": after})
 
         for creative in ads:
-            title = escape_markdown(creative.get('title', "Creative with no title"))
+            # title = escape_markdown(creative.get('title', "Creative with no title"))
             url = creative.get('url')
-            days_running = creative.get('days_running')
-            msg = f"\n[{title }]({url})" + f"\n *Days running:* {days_running}\n"
-            await callback.message.answer(msg, parse_mode='MarkdownV2', disable_web_page_preview=True)
+            # days_running = creative.get('days_running')
+            # msg = f"\n[{title }]({url})" + f"\n *Days running:* {days_running}\n"
+            await callback.message.answer(url)
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text="Next", callback_data="next_ads_search")],
                              [InlineKeyboardButton(text="Main menu", callback_data="main_menu")],
@@ -491,8 +492,8 @@ async def get_fav_creatives(callback: types.CallbackQuery, state: FSMContext):
             return
         user_pins_data = {}
 
-        for index, pin in enumerate(data):
-            pin_id = f"pin_{index}"
+        for pin in data:
+            pin_id = data.get("id")
             user_pins_data[pin_id] = pin
             niche_keywords = pin.get("niche_keywords")
             placements = pin.get("placements")
@@ -501,12 +502,10 @@ async def get_fav_creatives(callback: types.CallbackQuery, state: FSMContext):
             period = pin.get("period")
             keyword = pin.get("keyword")
 
-            # Генеруємо callback_data, можеш замінити на JSON encode + compress, якщо потрібно передати більше
-            callback_data = f"pin_run:{pin_id}"
-
             keyboard = InlineKeyboardMarkup(
                 inline_keyboard=[
-                    [InlineKeyboardButton(text="🔍 Run search", callback_data=callback_data)]
+                    [InlineKeyboardButton(text="🔍 Run search", callback_data=f"pin_run:{pin_id}")],
+                    [InlineKeyboardButton(text="Delete search", callback_data=f"pin_delete:{pin_id}")]
                 ]
             )
 
@@ -580,11 +579,11 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
             return
 
         for creative in ads:
-            title = escape_markdown(creative.get('title', "Creative with no title"))
+            # title = escape_markdown(creative.get('title', "Creative with no title"))
             url = creative.get('url')
-            days_running = creative.get('days_running')
-            msg = f"\n[{title if title else 'link'}]({url})" + f"\n *Days running:* {days_running}\n"
-            await callback.message.answer(msg, parse_mode='MarkdownV2', disable_web_page_preview=True)
+            # days_running = creative.get('days_running')
+            # msg = f"\n[{title if title else 'link'}]({url})" + f"\n *Days running:* {days_running}\n"
+            await callback.message.answer(url)
 
         # Navigation
         keyboard = InlineKeyboardMarkup(
@@ -599,6 +598,17 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
     elif response.status_code == 402:
         await callback.message.answer("Not enough credits. Buy more to continue.")
         await show_credits_menu(event=callback, bot=bot)
+    else:
+        await callback.message.answer("Something went wrong.")
+        await main_menu(callback.message)
+
+
+@tg_router.callback_query(F.data.startswith("pin_delete:"))
+async def delete_saved_pin(callback: types.CallbackQuery, state: FSMContext):
+    pin_id_from_callback = callback.data.split(":")[1]
+    response = requests.get(url=f"{API_URL}/pins", params={"pin_id": pin_id_from_callback})
+    if response.status_code == 200:
+        await callback.message.answer("Search successfully deleted!")
     else:
         await callback.message.answer("Something went wrong.")
         await main_menu(callback.message)
