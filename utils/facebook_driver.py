@@ -102,56 +102,6 @@ class FacebookAdsLibraryDriver:
                 raise Exception(f"Failed to fetch Facebook Ads: {e}") from e
         raise Exception(f"Failed to fetch Facebook Ads after {retries} attempts.")
 
-    async def _search_single_term_ads(
-            self,
-            search_term: str,
-            placements: Optional[List[str]],
-            countries: Optional[str],
-            ad_type: Optional[str],
-            period: str,
-            limit: int,
-            after: Optional[str] = None
-    ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
-
-        params = {
-            "access_token": self.access_token,
-            "search_terms": search_term,
-            "ad_reached_countries": countries,
-            "ad_active_status": "ALL",
-            "media_type": ad_type if ad_type else "ALL",
-            "fields": ",".join([
-                "ad_creative_bodies",
-                "ad_creative_link_titles",
-                "ad_creative_link_descriptions",
-                "ad_snapshot_url",
-                "publisher_platforms",
-                "ad_delivery_start_time",
-                "ad_delivery_stop_time",
-                "id"
-            ]),
-            "limit": limit,
-            "start_date": self._calculate_date_filter(period),
-        }
-        if after:
-            params["after"] = after
-
-        params = {k: v for k, v in params.items() if v}
-
-        try:
-            raw_response_data = await self._fetch_ads(params)
-            raw_ads = raw_response_data.get("data", [])
-            next_cursor = raw_response_data.get("paging", {}).get("cursors", {}).get("after")
-
-            formatted_ads = []
-            for ad in raw_ads:
-                formatted = self._format_ad(ad, placements)
-                if formatted:
-                    formatted_ads.append(formatted)
-            return formatted_ads, next_cursor
-        except Exception as e:
-            logging.error(f"Error fetching ads for term '{search_term}': {e}")
-            return [], None
-
     async def search_ads_or(
             self,
             niche_keywords: List[str],
@@ -161,18 +111,23 @@ class FacebookAdsLibraryDriver:
             period: str = "week",
             keyword: Optional[str] = None,
             limit: int = 10,
-    ) -> List[Dict[str, Any]]:
+            after: Optional[str] = None
+    ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+        """
+        Returns:
+            - ads: List of ads (max `limit`)
+            - cursor: 'after' string for pagination (or None)
+        """
         keywords = []
         if keyword:
             keywords.append(keyword.lower())
         for niche in niche_keywords:
             keywords.extend([kw.lower() for kw in NICHE_KEYWORDS.get(niche, [])])
-
         keywords = sorted(list(set(keywords)))
 
         params = {
             "access_token": self.access_token,
-            "search_terms": ",".join(keywords),
+            "search_terms": ",".join(keywords),  # OR-style search
             "ad_reached_countries": countries,
             "ad_active_status": "ALL",
             "media_type": ad_type if ad_type else "ALL",
@@ -190,90 +145,22 @@ class FacebookAdsLibraryDriver:
             "start_date": self._calculate_date_filter(period),
         }
 
+        if after:
+            params["after"] = after
+
         params = {k: v for k, v in params.items() if v}
 
-        try:
-            data = await self._fetch_ads(params)
-            raw_ads = data.get("data", [])
-            formatted_ads = []
-            for ad in raw_ads:
-                formatted = self._format_ad(ad, placements)
-                if formatted:
-                    formatted_ads.append(formatted)
-            return formatted_ads
-        except Exception as e:
-            logging.error(f"OR search failed: {e}")
-            return []
+        data = await self._fetch_ads(params)
+        raw_ads = data.get("data", [])
+        next_cursor = data.get("paging", {}).get("cursors", {}).get("after")
 
-    async def _orchestrate_search_terms(
-            self,
-            niche_keywords: List[str],
-            placements: Optional[List[str]],
-            countries: Optional[str],
-            ad_type: Optional[str],
-            period: str,
-            keyword: Optional[str],
-            api_call_limit: int,
-            start_combination_index: int,
-            start_cursor: Optional[str]
-    ) -> Tuple[List[Dict[str, Any]], Optional[str], int]:
+        formatted_ads = []
+        for ad in raw_ads:
+            formatted = self._format_ad(ad, placements)
+            if formatted:
+                formatted_ads.append(formatted)
 
-        period = "half_year" if period == "halfyear" else period
-
-        base_keywords = []
-        if keyword:
-            base_keywords.append(keyword.lower())
-        for niche in niche_keywords:
-            base_keywords.extend([kw.lower() for kw in NICHE_KEYWORDS.get(niche, [])])
-
-        base_keywords = sorted(list(set(base_keywords)))
-
-        search_term_combinations = []
-        for r in range(2, 5):
-            for combo in itertools.combinations(base_keywords, r):
-                search_term_combinations.append(" ".join(combo))
-        single_words_only = [kw for kw in base_keywords if not any(kw in c for c in search_term_combinations)]
-        search_term_combinations.extend(single_words_only)
-
-        unique_term_strings = []
-        seen_terms = set()
-        for term_str in search_term_combinations:
-            words = tuple(sorted(term_str.split()))
-            if words not in seen_terms:
-                unique_term_strings.append(term_str)
-                seen_terms.add(words)
-        search_term_combinations = unique_term_strings
-
-        if not search_term_combinations:
-            logging.info("No valid search terms generated.")
-            return [], None, -1
-
-        current_combination_index = start_combination_index
-        current_cursor = start_cursor
-
-        while current_combination_index < len(search_term_combinations):
-            search_term = search_term_combinations[current_combination_index]
-            logging.info(f"Searching with term: '{search_term}' (Combination Index: {current_combination_index})")
-
-            ads_for_term, next_cursor_for_term = await self._search_single_term_ads(
-                search_term=search_term,
-                placements=placements,
-                countries=countries,
-                ad_type=ad_type,
-                period=period,
-                limit=api_call_limit,
-                after=current_cursor
-            )
-
-            if ads_for_term:
-                return ads_for_term, next_cursor_for_term, current_combination_index
-            else:
-                logging.info(f"No ads for term '{search_term}'. Moving to next combination.")
-                current_combination_index += 1
-                current_cursor = None
-
-        logging.info("All search terms and pages exhausted.")
-        return [], None, -1
+        return formatted_ads, next_cursor
 
     def _format_ad(self, ad: dict, placements: Optional[List[str]]) -> Optional[Dict[str, Any]]:
         EXCLUDED_TITLE = "This content was removed because it didn't follow our Advertising Standards."
@@ -335,83 +222,6 @@ class FacebookAdsLibraryDriver:
     async def close(self):
         await self.client.aclose()
 
-    async def get_ads_page(self, page_size: int = 10, **search_params: Any) -> Tuple[
-        List[Dict[str, Any]], Optional[Dict[str, Any]]]:
-        all_collected_ads: List[Dict[str, Any]] = []
-
-        search_cursor = search_params.pop('after', None)
-        if search_cursor:
-            current_keyword_combination_index = search_cursor.get('current_keyword_combination_index', 0)
-            current_cursor = search_cursor.get('current_cursor', None)
-            seen_ad_ids = set(search_cursor.get('seen_ad_ids', []))
-            seen_content_hashes = set(search_cursor.get('seen_content_hashes', []))
-            logging.info(
-                f"Resuming search from combination {current_keyword_combination_index}, cursor {current_cursor}, seen {len(seen_ad_ids)} ads.")
-        else:
-            current_keyword_combination_index = 0
-            current_cursor = None
-            seen_ad_ids = set()
-            seen_content_hashes = set()
-            logging.info("Starting new unique ad search from scratch.")
-
-        api_fetch_limit = max(page_size, 25)
-
-        # Initialize ads_chunk and next_combination_index before the loop/try block
-        ads_chunk = []
-        next_combination_index = current_keyword_combination_index  # Default to current, will be updated
-
-        while len(all_collected_ads) < page_size:
-            try:
-                ads_chunk, next_cursor_for_term, next_combination_index = await self._orchestrate_search_terms(
-                    api_call_limit=api_fetch_limit,
-                    start_combination_index=current_keyword_combination_index,
-                    start_cursor=current_cursor,
-                    **search_params
-                )
-
-                # This check is now safe because ads_chunk is always defined
-                if not ads_chunk and next_combination_index == -1:
-                    logging.info("All search terms and pages exhausted. Cannot get more ads.")
-                    break
-
-                for ad in ads_chunk:
-                    content_string = f"{ad.get('title', '')}|{ad.get('description', '')}|{ad.get('body', '')}"
-                    content_hash = hashlib.md5(content_string.encode('utf-8')).hexdigest()
-
-                    if ad["id"] not in seen_ad_ids and content_hash not in seen_content_hashes:
-                        all_collected_ads.append(ad)
-                        seen_ad_ids.add(ad["id"])
-                        seen_content_hashes.add(content_hash)
-                        if len(all_collected_ads) >= page_size:
-                            break
-
-                current_cursor = next_cursor_for_term
-                current_keyword_combination_index = next_combination_index
-
-                if not next_cursor_for_term and next_combination_index == -1:
-                    logging.info("Exhausted all combinations and pages internally.")
-                    break
-
-            except Exception as e:
-                logging.error(f"Error during overall ad fetching in get_ads_page: {e}. Stopping collection.")
-                # If an error occurs, we need to make sure we don't try to access ads_chunk
-                # in the loop condition if it wasn't assigned. The break will handle it.
-                break
-
-        next_search_cursor = None
-        if len(all_collected_ads) >= page_size:
-            next_search_cursor = {
-                'current_keyword_combination_index': current_keyword_combination_index,
-                'current_cursor': current_cursor,
-                'seen_ad_ids': list(seen_ad_ids),
-                'seen_content_hashes': list(seen_content_hashes)
-            }
-        elif not ads_chunk and next_combination_index == -1 and len(all_collected_ads) < page_size:
-            logging.info("All available unique ads collected. No further pages.")
-            next_search_cursor = None
-
-        return all_collected_ads, next_search_cursor
-
 
 if __name__ == '__main__':
     async def run_main():
@@ -425,44 +235,6 @@ if __name__ == '__main__':
         try:
             print("Starting paginated unique ad search...")
 
-            # --- First Page (e.g., 5 ads per page) ---
-            print("\n--- Page 1 ---")
-            page_size = 5  # Request 5 ads per page
-            ads_page1, search_cursor_page1 = await driver.get_ads_page(
-                page_size=page_size,
-                niche_keywords=["crypto"],
-                placements=["facebook", "instagram"],
-                countries=["US", "CA"],
-                ad_type="all",
-                period="month",
-                keyword="solana",
-                # No 'search_cursor' for the first call
-            )
-
-            print(f"Collected {len(ads_page1)} ads for Page 1.")
-            for i, ad in enumerate(ads_page1):
-                print(f"  Ad {i + 1} ID: {ad['id']}")
-            print(f"Next search cursor for Page 1: {'exists' if search_cursor_page1 else 'None'}")
-
-            # --- Second Page (if cursor exists) ---
-            if search_cursor_page1:
-                print("\n--- Page 2 ---")
-                ads_page2, search_cursor_page2 = await driver.get_ads_page(
-                    page_size=page_size,
-                    search_cursor=search_cursor_page1,  # Pass the cursor from the previous page
-                    niche_keywords=["crypto"],  # Re-pass original search parameters
-                    placements=["facebook", "instagram"],
-                    countries=["US", "CA"],
-                    ad_type="all",
-                    period="month",
-                    keyword="solana",
-                )
-                print(f"Collected {len(ads_page2)} ads for Page 2.")
-                for i, ad in enumerate(ads_page2):
-                    print(f"  Ad {i + 1} ID: {ad['id']}")
-                print(f"Next search cursor for Page 2: {'exists' if search_cursor_page2 else 'None'}")
-
-            # You can continue calling get_ads_page in a loop until search_cursor is None
 
         except Exception as e:
             logging.error(f"Error during main execution: {e}")
