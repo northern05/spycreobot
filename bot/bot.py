@@ -313,6 +313,9 @@ async def submit_placements(callback: types.CallbackQuery, state: FSMContext):
 @tg_router.callback_query(CreativesState.choose_countries)
 async def submit_countries(callback: types.CallbackQuery, state: FSMContext):
     selected = user_selection_state.get(callback.from_user.id, {}).get("countries", [])
+    if 2 > len(selected) > 4:
+        await callback.answer("You enter wrong geo code, please enter right geo code!")
+        await submit_placements(callback, state)
     await state.update_data({"countries": selected})
     await state.set_state(CreativesState.choose_type)
     types_ = ["image", "video", "meme", "all"]
