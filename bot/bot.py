@@ -352,9 +352,8 @@ async def handle_period_selection(callback: types.CallbackQuery, state: FSMConte
 
 @tg_router.message(CreativesState.enter_keywords)
 async def get_creatives(message: types.Message, state: FSMContext):
-    # await delete_previous_message(bot, message.chat.id, message.message_id)
-    # await message.answer("✅ All filters selected! Proceeding...")
     await delete_previous_message(bot, message.chat.id, message.message_id)
+    await message.answer("✅ All filters selected! Proceeding...")
     processing_message = await message.answer_animation(animation=GIF_URL,
                                                         caption="Processing your request...")
     telegram_id = message.from_user.id if message.from_user.id != SELF_ID else message.chat.id
@@ -388,11 +387,8 @@ async def get_creatives(message: types.Message, state: FSMContext):
         await state.update_data({"search_cursor": search_cursor})
 
         for creative in ads:
-            # title = escape_markdown(creative.get('title', "Creative with no title"))
             url = creative.get('url')
-            # days_running = creative.get('days_running')
-            # msg = f"\n[{title}]({url})" + f"\n *Days running:* {days_running}\n"
-            await message.answer(url)
+            await message.answer(escape_markdown(url), parse_mode='MarkdownV2', disable_web_page_preview=False)
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text="Next", callback_data="next_ads_search")],
                              [InlineKeyboardButton(text="Main menu", callback_data="main_menu")],
@@ -437,11 +433,8 @@ async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
         await state.update_data({"search_cursor": search_cursor})
 
         for creative in ads:
-            # title = escape_markdown(creative.get('title', "Creative with no title"))
             url = creative.get('url')
-            # days_running = creative.get('days_running')
-            # msg = f"\n[{title }]({url})" + f"\n *Days running:* {days_running}\n"
-            await callback.message.answer(url)
+            await callback.message.answer(escape_markdown(url), parse_mode='MarkdownV2', disable_web_page_preview=False)
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text="Next", callback_data="next_ads_search")],
                              [InlineKeyboardButton(text="Main menu", callback_data="main_menu")],
@@ -570,11 +563,8 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
             return
 
         for creative in ads:
-            # title = escape_markdown(creative.get('title', "Creative with no title"))
             url = creative.get('url')
-            # days_running = creative.get('days_running')
-            # msg = f"\n[{title if title else 'link'}]({url})" + f"\n *Days running:* {days_running}\n"
-            await callback.message.answer(url)
+            await callback.message.answer(escape_markdown(url), parse_mode='MarkdownV2', disable_web_page_preview=False)
 
         # Navigation
         keyboard = InlineKeyboardMarkup(
