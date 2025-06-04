@@ -253,7 +253,7 @@ async def ask_niche_creatives(event: types.Message | types.CallbackQuery, bot: B
 async def handle_niche_selection(callback: types.CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
     niche = callback.data.split(":")[1]
-    await state.set_data({"niche": [niche]})
+    await state.set_data({"niche": niche})
     await state.set_state(CreativesState.choose_placement)
 
     placements = ["Facebook", "Instagram", "TikTok", "Google"]
@@ -262,7 +262,7 @@ async def handle_niche_selection(callback: types.CallbackQuery, state: FSMContex
     rows.append([InlineKeyboardButton(text="✅ Submit", callback_data="placement_submit")])
 
     user_selection_state[user_id] = {
-        "niche": [niche],
+        "niche": niche,
         "placements": []
     }
 
@@ -298,6 +298,7 @@ async def submit_placements(callback: types.CallbackQuery, state: FSMContext):
 
 @tg_router.message(CreativesState.choose_countries)
 async def submit_countries(message: types.Message, state: FSMContext):
+    await delete_previous_message(bot, message.chat.id, message.message_id)
     text = message.text.strip().upper()
     if len(text) < 2 or len(text) > 4:
         await message.answer("❌ Wrong geo code format. Please enter valid country code (e.g. US,CA,UA).")
@@ -357,8 +358,8 @@ async def get_creatives(message: types.Message, state: FSMContext):
     processing_message = await message.answer_animation(animation=GIF_URL,
                                                         caption="Processing your request...")
     telegram_id = message.from_user.id if message.from_user.id != SELF_ID else message.chat.id
-    keywords = message.text
-    await state.update_data({"keyword": keywords})
+    keyword = message.text
+    await state.update_data({"keyword": keyword})
     data = await state.get_data()
     json = {
         "telegram_id": str(telegram_id),
