@@ -17,7 +17,7 @@ class CreativeResponse(CreativeBase):
 
 class CreativeRequest(BaseModel):
     telegram_id: str
-    niche_keywords: list
+    niche: str
     placements: list
     countries: str
     ad_type: str

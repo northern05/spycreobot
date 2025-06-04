@@ -238,51 +238,37 @@ async def ask_niche_creatives(event: types.Message | types.CallbackQuery, bot: B
             [InlineKeyboardButton(text="Nutra", callback_data="niche:nutra"),
              InlineKeyboardButton(text="Dating", callback_data="niche:dating")],
             [InlineKeyboardButton(text="Ecom", callback_data="niche:products"),
-             InlineKeyboardButton(text="Gaming", callback_data="niche:gaming")],
-            [InlineKeyboardButton(text="✅ Submit", callback_data="niche_submit")]
+             InlineKeyboardButton(text="Gaming", callback_data="niche:gaming")]
         ]
     )
-    user_selection_state[event.from_user.id] = {"niches": []}
     if isinstance(event, types.Message):
-        await event.answer("Choose niches (multiple allowed):", reply_markup=keyboard)
+        await event.answer("Choose one niche:", reply_markup=keyboard)
     elif isinstance(event, types.CallbackQuery):
-        await event.message.answer("Choose niches (multiple allowed):", reply_markup=keyboard)
+        await event.message.answer("Choose one niche:", reply_markup=keyboard)
         await delete_previous_message(bot, event.message.chat.id, event.message.message_id)
         await event.answer()
 
 
-@tg_router.callback_query(CreativesState.choose_niche)
-async def toggle_niche(callback: types.CallbackQuery, state: FSMContext):
-    if callback.data.startswith("niche_submit"):
-        await submit_niches(callback, state)
-        return
+@tg_router.callback_query(CreativesState.choose_niche, F.data.startswith("niche:"))
+async def handle_niche_selection(callback: types.CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
     niche = callback.data.split(":")[1]
-    selected = user_selection_state[user_id].get("niches", [])
-    if niche in selected:
-        selected.remove(niche)
-    else:
-        selected.append(niche)
-    user_selection_state[user_id]["niches"] = selected
-    await callback.answer(f"Selected niches: {', '.join(selected)}")
-
-
-@tg_router.callback_query(CreativesState.choose_niche, F.data == "niche_submit")
-async def submit_niches(callback: types.CallbackQuery, state: FSMContext):
-    user_id = callback.from_user.id
-    selected_niches = user_selection_state.get(user_id, {}).get("niches", [])
-    if not selected_niches:
-        await callback.answer("Please select at least one niche before submitting.", show_alert=True)
-        return
-    await state.set_data({"niches": selected_niches})
+    await state.set_data({"niche": [niche]})
     await state.set_state(CreativesState.choose_placement)
+
     placements = ["Facebook", "Instagram", "TikTok", "Google"]
     buttons = [InlineKeyboardButton(text=p, callback_data=f"placement:{p.lower()}") for p in placements]
     rows = [[buttons[i], buttons[i + 1]] for i in range(0, len(buttons), 2)]
     rows.append([InlineKeyboardButton(text="✅ Submit", callback_data="placement_submit")])
-    user_selection_state[callback.from_user.id]["placements"] = []
-    await callback.message.answer("Choose placements:", reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
+
+    user_selection_state[user_id] = {
+        "niche": [niche],
+        "placements": []
+    }
+
+    await callback.message.answer(f"Niche selected: {niche.capitalize()}\nNow choose placements:", reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
     await delete_previous_message(bot, callback.message.chat.id, callback.message.message_id)
+    await callback.answer()
 
 
 @tg_router.callback_query(CreativesState.choose_placement)
@@ -376,7 +362,7 @@ async def get_creatives(message: types.Message, state: FSMContext):
     data = await state.get_data()
     json = {
         "telegram_id": str(telegram_id),
-        "niche_keywords": data.get("niches"),
+        "niche": data.get("niche"),
         "placements": data.get("placements"),
         "countries": data.get("countries"),
         "ad_type": data.get("media_types"),
@@ -424,7 +410,7 @@ async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
     state_data = await state.get_data()
     json = {
         "telegram_id": str(callback.message.chat.id),
-        "niche_keywords": state_data.get("niches"),
+        "niche": state_data.get("niche"),
         "placements": state_data.get("placements"),
         "countries": state_data.get("countries"),
         "ad_type": state_data.get("media_types"),
@@ -471,7 +457,7 @@ async def pin_search(message: types.Message, state: FSMContext):
     telegram_id = message.from_user.id if message.from_user.id != SELF_ID else message.chat.id
     data = await state.get_data()
     json = {
-        "niche_keywords": data.get("niches"),
+        "niche": data.get("niche"),
         "placements": data.get("placements"),
         "countries": data.get("countries"),
         "ad_type": data.get("media_types"),
@@ -501,7 +487,7 @@ async def get_fav_creatives(callback: types.CallbackQuery, state: FSMContext):
         for pin in data:
             pin_id = pin.get("id")
             user_pins_data[pin_id] = pin
-            niche_keywords = pin.get("niche_keywords")
+            niche = pin.get("niche")
             placements = pin.get("placements")
             countries = pin.get("countries")
             ad_type = pin.get("ad_type")
@@ -516,7 +502,7 @@ async def get_fav_creatives(callback: types.CallbackQuery, state: FSMContext):
             )
 
             await callback.message.answer(
-                f"*Niche:* {niche_keywords}\n"
+                f"*Niche:* {niche}\n"
                 f"*Placements:* {placements}\n"
                 f"*Countries:* {countries}\n"
                 f"*Type:* {ad_type}\n"
@@ -549,7 +535,7 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
         await callback.answer()
         return
 
-    niche_keywords = selected_pin.get("niche_keywords", [])
+    niche = selected_pin.get("niche", [])
     placements = selected_pin.get("placements", [])
     countries = selected_pin.get("countries", [])
     ad_type = selected_pin.get("ad_type", "all")  # Default 'all'
@@ -557,7 +543,7 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
     keyword = selected_pin.get("keyword")
     data = {
         "telegram_id": str(callback.from_user.id),
-        "niche_keywords": niche_keywords,
+        "niche": niche,
         "placements": placements,
         "countries": countries,
         "ad_type": ad_type,
