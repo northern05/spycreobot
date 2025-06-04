@@ -3,6 +3,7 @@ from pydantic import BaseModel, ConfigDict
 
 class CreativeBase(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+    id: int
     title: str | None = None
     description: str | None = None
     body: str | None = None

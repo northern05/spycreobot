@@ -2,7 +2,7 @@ from typing import Union
 from types import SimpleNamespace
 from datetime import datetime
 from aiogram.client.default import DefaultBotProperties
-from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
+from aiogram.types import Message, InputMediaPhoto, InputMediaVideo, BufferedInputFile
 from aiogram import Router, F, types, Bot, Dispatcher
 from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
@@ -387,18 +387,89 @@ async def get_creatives(message: types.Message, state: FSMContext):
         search_cursor = data.get("search_cursor")
         await state.update_data({"search_cursor": search_cursor})
 
+        media_group = []
+        temp_files = []  # Для зберігання шляхів до тимчасових файлів
+
         for creative in ads:
             url = creative.get('url')
-            await message.answer(url, disable_web_page_preview=False)
+            if not url:
+                logging.warning(f"Оголошення з ID {creative.get('id')} не має URL. Пропускаємо.")
+                continue
+
+            temp_filename = f"ad_{creative['id']}_{os.path.basename(url).split('?')[0].split('/')[-1]}"
+            # Додаємо розширення, якщо його немає, або залишаємо, якщо є
+            if '.' not in temp_filename:
+                temp_filename += '.png'  # Припустимо, більшість - це зображення, або визначте тип раніше
+
+            temp_path = os.path.join("/tmp", temp_filename)
+
+            # Завантажуємо файл
+            logging.info(f"Завантажуємо: {url} до {temp_path}")
+            download_success = await download_file(url, temp_path)
+
+            if download_success and os.path.exists(temp_path):
+                file_type = get_media_type_from_url(temp_path)
+
+                # Обрізаємо підпис для Telegram (до 1024 символів)
+                caption_text = (
+                    f"*{creative.get('title', 'Оголошення')}*\n\n"
+                    f"{creative.get('body', '')[:300]}...\n"  # Обрізаємо body для підпису
+                    f"[Оригінальне оголошення]({url})"
+                )
+                if len(caption_text) > 1024:
+                    caption_text = caption_text[:1020] + "..."
+
+                with open(temp_path, 'rb') as f:
+                    if file_type == 'photo':
+                        media_group.append(InputMediaPhoto(media=BufferedInputFile(f.read(), filename=temp_filename),
+                                                           caption=caption_text, parse_mode="Markdown"))
+                    elif file_type == 'video':
+                        media_group.append(InputMediaVideo(media=BufferedInputFile(f.read(), filename=temp_filename),
+                                                           caption=caption_text, parse_mode="Markdown"))
+                    else:
+                        logging.warning(f"Невідомий тип медіа для {url}. Пропускаємо.")
+                temp_files.append(temp_path)  # Зберігаємо шлях для подальшого видалення
+            else:
+                logging.error(f"Не вдалося завантажити або знайти файл: {url}")
+                # Можна відправити текстове посилання, якщо не вдалося завантажити медіа
+                await message.answer(f"Не вдалося завантажити оголошення: [Посилання]({url})", parse_mode="Markdown",
+                                     disable_web_page_preview=True)
+
+            # Ліміт на медіа-групу 10 елементів
+            if len(media_group) >= 10:
+                break  # Вийти з циклу, щоб відправити поточну групу
+
+        # Видаляємо повідомлення про обробку
+        await bot.delete_message(
+            chat_id=processing_message.chat.id,
+            message_id=processing_message.message_id
+        )
+
+        # Відправка медіа-групи
+        if media_group:
+            try:
+                await bot.send_media_group(chat_id=message.chat.id, media=media_group)
+                logging.info(f"Відправлено медіа-групу з {len(media_group)} елементів.")
+            except Exception as e:
+                logging.error(f"Помилка при відправці медіа-групи: {e}")
+                await message.answer("Виникла помилка при відправці оголошень.")
+        else:
+            await message.answer("Не знайдено оголошень для відображення після завантаження та фільтрації.",
+                                 parse_mode='Markdown')
+
+        # Очистка тимчасових файлів
+        for f_path in temp_files:
+            if os.path.exists(f_path):
+                os.remove(f_path)
+                logging.info(f"Видалено тимчасовий файл: {f_path}")
+
+        # Клавіатура для наступних дій
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text="Next", callback_data="next_ads_search")],
                              [InlineKeyboardButton(text="Main menu", callback_data="main_menu")],
                              [InlineKeyboardButton(text="Pin search", callback_data="pin_search")]]
         )
-        await message.answer("Do you want to get next 10 creatives?", reply_markup=keyboard)
-    else:
-        await message.answer("Something went wrong!")
-        await main_menu(event=message)
+        await message.answer("Do you want to get next creatives?", reply_markup=keyboard)
 
 
 @tg_router.callback_query(F.data == "next_ads_search")
@@ -523,7 +594,7 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
     user_data = await state.get_data()
     user_pins = user_data.get("user_pins", {})
 
-    selected_pin = user_pins.get(pin_id_from_callback)
+    selected_pin = user_pins.get(int(pin_id_from_callback))
 
     if not selected_pin:
         await callback.message.answer("Error: Pin data not found \n Please try again or start over")
@@ -563,26 +634,89 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
             await callback.message.answer("No creatives found")
             return
 
+        media_group = []
+        temp_files = []  # Для зберігання шляхів до тимчасових файлів
+
         for creative in ads:
             url = creative.get('url')
-            await callback.message.answer(escape_markdown(url), parse_mode='MarkdownV2', disable_web_page_preview=False)
+            if not url:
+                logging.warning(f"Оголошення з ID {creative.get('id')} не має URL. Пропускаємо.")
+                continue
 
-        # Navigation
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text="Next", callback_data="next_ads_search")],
-                [InlineKeyboardButton(text="Main menu", callback_data="main_menu")],
-                [InlineKeyboardButton(text="Pin search", callback_data="pin_search")],
-            ]
+            temp_filename = f"ad_{creative['id']}_{os.path.basename(url).split('?')[0].split('/')[-1]}"
+            # Додаємо розширення, якщо його немає, або залишаємо, якщо є
+            if '.' not in temp_filename:
+                temp_filename += '.png'  # Припустимо, більшість - це зображення, або визначте тип раніше
+
+            temp_path = os.path.join("/tmp", temp_filename)
+
+            # Завантажуємо файл
+            logging.info(f"Завантажуємо: {url} до {temp_path}")
+            download_success = await download_file(url, temp_path)
+
+            if download_success and os.path.exists(temp_path):
+                file_type = get_media_type_from_url(temp_path)
+
+                # Обрізаємо підпис для Telegram (до 1024 символів)
+                caption_text = (
+                    f"*{creative.get('title', 'Оголошення')}*\n\n"
+                    f"{creative.get('body', '')[:300]}...\n"  # Обрізаємо body для підпису
+                    f"[Оригінальне оголошення]({url})"
+                )
+                if len(caption_text) > 1024:
+                    caption_text = caption_text[:1020] + "..."
+
+                with open(temp_path, 'rb') as f:
+                    if file_type == 'photo':
+                        media_group.append(InputMediaPhoto(media=BufferedInputFile(f.read(), filename=temp_filename),
+                                                           caption=caption_text, parse_mode="Markdown"))
+                    elif file_type == 'video':
+                        media_group.append(InputMediaVideo(media=BufferedInputFile(f.read(), filename=temp_filename),
+                                                           caption=caption_text, parse_mode="Markdown"))
+                    else:
+                        logging.warning(f"Невідомий тип медіа для {url}. Пропускаємо.")
+                temp_files.append(temp_path)  # Зберігаємо шлях для подальшого видалення
+            else:
+                logging.error(f"Не вдалося завантажити або знайти файл: {url}")
+                # Можна відправити текстове посилання, якщо не вдалося завантажити медіа
+                await callback.message.answer(f"Не вдалося завантажити оголошення: [Посилання]({url})", parse_mode="Markdown",
+                                     disable_web_page_preview=True)
+
+            # Ліміт на медіа-групу 10 елементів
+            if len(media_group) >= 10:
+                break  # Вийти з циклу, щоб відправити поточну групу
+
+        # Видаляємо повідомлення про обробку
+        await bot.delete_message(
+            chat_id=processing_message.chat.id,
+            message_id=processing_message.message_id
         )
-        await callback.message.answer("Do you want to get next 10 creatives?", reply_markup=keyboard)
 
-    elif response.status_code == 402:
-        await callback.message.answer("Not enough credits. Buy more to continue.")
-        await show_credits_menu(event=callback, bot=bot)
-    else:
-        await callback.message.answer("Something went wrong.")
-        await main_menu(callback.message)
+        # Відправка медіа-групи
+        if media_group:
+            try:
+                await bot.send_media_group(chat_id=callback.message.chat.id, media=media_group)
+                logging.info(f"Відправлено медіа-групу з {len(media_group)} елементів.")
+            except Exception as e:
+                logging.error(f"Помилка при відправці медіа-групи: {e}")
+                await callback.message.answer("Виникла помилка при відправці оголошень.")
+        else:
+            await callback.message.answer("Не знайдено оголошень для відображення після завантаження та фільтрації.",
+                                 parse_mode='Markdown')
+
+        # Очистка тимчасових файлів
+        for f_path in temp_files:
+            if os.path.exists(f_path):
+                os.remove(f_path)
+                logging.info(f"Видалено тимчасовий файл: {f_path}")
+
+        # Клавіатура для наступних дій
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="Next", callback_data="next_ads_search")],
+                             [InlineKeyboardButton(text="Main menu", callback_data="main_menu")],
+                             [InlineKeyboardButton(text="Pin search", callback_data="pin_search")]]
+        )
+        await callback.message.answer("Do you want to get next creatives?", reply_markup=keyboard)
 
 
 @tg_router.callback_query(F.data.startswith("pin_delete:"))

@@ -1,5 +1,9 @@
+import logging
+import mimetypes
 import os
 import re
+
+import httpx
 import requests
 import string
 from urllib.parse import urlparse
@@ -102,3 +106,30 @@ def build_multi_select_keyboard(options: list[str], selected: list[str]) -> Inli
     builder.button(text="✅ Submit", callback_data="submit")
     builder.adjust(2)  # 2 columns
     return builder.as_markup()
+
+async def download_file(url: str, save_path: str) -> bool:
+    """Завантажує файл за URL і зберігає його за вказаним шляхом."""
+    try:
+        async with httpx.AsyncClient() as client:
+            async with client.stream('GET', url, follow_redirects=True, timeout=60) as response:
+                response.raise_for_status()
+                with open(save_path, 'wb') as f:
+                    async for chunk in response.aiter_bytes():
+                        f.write(chunk)
+            return True
+    except httpx.RequestError as e:
+        logging.error(f"Помилка завантаження файлу з {url}: {e}")
+        return False
+    except Exception as e:
+        logging.error(f"Неочікувана помилка при завантаженні файлу з {url}: {e}")
+        return False
+
+def get_media_type_from_url(url: str) -> str:
+    """Визначає тип медіа (фото/відео) за URL."""
+    mimetype, _ = mimetypes.guess_type(url)
+    if mimetype:
+        if mimetype.startswith('image/'):
+            return 'photo'
+        if mimetype.startswith('video/'):
+            return 'video'
+    return 'unknown'
