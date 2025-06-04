@@ -27,7 +27,7 @@ class Pin(Base):
 
     niche: Mapped[str] = mapped_column(String)
     placements: Mapped[list[str]] = mapped_column(ARRAY(String))
-    country: Mapped[str] = mapped_column(ARRAY(String))
+    country: Mapped[str] = mapped_column(String)
     ad_type: Mapped[AdTypeEnum] = mapped_column(SqlEnum(AdTypeEnum), nullable=False)
     period: Mapped[PeriodEnum] = mapped_column(SqlEnum(PeriodEnum), nullable=False)
     keyword: Mapped[str] = mapped_column(String)
