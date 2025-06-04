@@ -306,7 +306,7 @@ class FacebookAdsLibraryDriver:
     async def close(self):
         await self.client.aclose()
 
-    async def get_ads_page(self, page_size: int = 4, **search_params: Any) -> Tuple[
+    async def get_ads_page(self, page_size: int = 10, **search_params: Any) -> Tuple[
         List[Dict[str, Any]], Optional[Dict[str, Any]]]:
         """
         Fetches a single 'page' of unique ads (up to page_size) and returns a cursor
