@@ -383,8 +383,8 @@ async def get_creatives(message: types.Message, state: FSMContext):
             await message.answer("No ads by your query", parse_mode='MarkdownV2')
 
         ads = data.get("ads")
-        after = data.get("after")
-        await state.update_data({"after": after})
+        search_cursor = data.get("search_cursor")
+        await state.update_data({"search_cursor": search_cursor})
 
         for creative in ads:
             # title = escape_markdown(creative.get('title', "Creative with no title"))
@@ -416,7 +416,7 @@ async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
         "ad_type": state_data.get("media_types"),
         "period": state_data.get("period"),
         "keyword": state_data.get("keyword"),
-        "after": state_data.get("after")
+        "search_cursor": state_data.get("search_cursor")
     }
     response = requests.get(url=f"{API_URL}/creatives", json=json)
     if response.status_code == 402:
@@ -432,8 +432,8 @@ async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
             await callback.message.answer("No ads by your query.", parse_mode='MarkdownV2')
 
         ads = data.get("ads")
-        after = data.get("after")
-        await state.update_data({"after": after})
+        search_cursor = data.get("search_cursor")
+        await state.update_data({"search_cursor": search_cursor})
 
         for creative in ads:
             # title = escape_markdown(creative.get('title', "Creative with no title"))
@@ -558,12 +558,10 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
     if response.status_code == 200:
         result = response.json()
         ads = result.get("ads", [])
-        after = result.get("after")
-        keyword_index = result.get("keyword_index")
+        search_cursor = result.get("search_cursor")
 
         await state.update_data({
-            "after": after,
-            "keyword_index": keyword_index
+            "search_cursor": search_cursor
         })
 
         if not ads:
