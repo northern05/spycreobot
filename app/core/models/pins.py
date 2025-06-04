@@ -25,7 +25,7 @@ class Pin(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     user_id: Mapped[str] = mapped_column(ForeignKey('users.id'), nullable=False)
 
-    niche: Mapped[str] = mapped_column(ARRAY(String))
+    niche: Mapped[str] = mapped_column(String)
     placements: Mapped[list[str]] = mapped_column(ARRAY(String))
     country: Mapped[str] = mapped_column(ARRAY(String))
     ad_type: Mapped[AdTypeEnum] = mapped_column(SqlEnum(AdTypeEnum), nullable=False)

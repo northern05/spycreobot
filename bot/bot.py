@@ -294,6 +294,7 @@ async def submit_placements(callback: types.CallbackQuery, state: FSMContext):
     await delete_previous_message(bot, callback.message.chat.id, callback.message.message_id)
     await callback.message.answer("🌍 Enter geo code:")
     await state.set_state(CreativesState.choose_country)
+    await delete_previous_message(bot, callback.message.chat.id, callback.message.message_id)
 
 
 @tg_router.message(CreativesState.choose_country)
@@ -388,7 +389,7 @@ async def get_creatives(message: types.Message, state: FSMContext):
 
         for creative in ads:
             url = creative.get('url')
-            await message.answer(escape_markdown(url), parse_mode='MarkdownV2', disable_web_page_preview=False)
+            await message.answer(url, disable_web_page_preview=False)
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text="Next", callback_data="next_ads_search")],
                              [InlineKeyboardButton(text="Main menu", callback_data="main_menu")],
