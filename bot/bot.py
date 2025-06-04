@@ -293,18 +293,18 @@ async def submit_placements(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data({"placements": selected})
     await delete_previous_message(bot, callback.message.chat.id, callback.message.message_id)
     await callback.message.answer("🌍 Enter geo code:")
-    await state.set_state(CreativesState.choose_countries)
+    await state.set_state(CreativesState.choose_country)
 
 
-@tg_router.message(CreativesState.choose_countries)
-async def submit_countries(message: types.Message, state: FSMContext):
+@tg_router.message(CreativesState.choose_country)
+async def submit_country(message: types.Message, state: FSMContext):
     await delete_previous_message(bot, message.chat.id, message.message_id)
     text = message.text.strip().upper()
     if len(text) < 2 or len(text) > 4:
         await message.answer("❌ Wrong geo code format. Please enter valid country code (e.g. US,CA,UA).")
         return
     await delete_previous_message(bot, message.chat.id, message.message_id)
-    await state.update_data({"countries": text})
+    await state.update_data({"country": text})
     await state.set_state(CreativesState.choose_type)
     types_ = ["image", "video", "meme", "all"]
     keyboard = InlineKeyboardMarkup(
@@ -365,7 +365,7 @@ async def get_creatives(message: types.Message, state: FSMContext):
         "telegram_id": str(telegram_id),
         "niche": data.get("niche"),
         "placements": data.get("placements"),
-        "countries": data.get("countries"),
+        "country": data.get("country"),
         "ad_type": data.get("media_types"),
         "period": data.get("period"),
         "keyword": data.get("keyword"),
@@ -413,7 +413,7 @@ async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
         "telegram_id": str(callback.message.chat.id),
         "niche": state_data.get("niche"),
         "placements": state_data.get("placements"),
-        "countries": state_data.get("countries"),
+        "country": state_data.get("country"),
         "ad_type": state_data.get("media_types"),
         "period": state_data.get("period"),
         "keyword": state_data.get("keyword"),
@@ -460,7 +460,7 @@ async def pin_search(message: types.Message, state: FSMContext):
     json = {
         "niche": data.get("niche"),
         "placements": data.get("placements"),
-        "countries": data.get("countries"),
+        "country": data.get("country"),
         "ad_type": data.get("media_types"),
         "period": data.get("period"),
         "keyword": data.get("keyword"),
@@ -490,7 +490,7 @@ async def get_fav_creatives(callback: types.CallbackQuery, state: FSMContext):
             user_pins_data[pin_id] = pin
             niche = pin.get("niche")
             placements = pin.get("placements")
-            countries = pin.get("countries")
+            country = pin.get("country")
             ad_type = pin.get("ad_type")
             period = pin.get("period")
             keyword = pin.get("keyword")
@@ -505,7 +505,7 @@ async def get_fav_creatives(callback: types.CallbackQuery, state: FSMContext):
             await callback.message.answer(
                 f"*Niche:* {niche}\n"
                 f"*Placements:* {placements}\n"
-                f"*Countries:* {countries}\n"
+                f"*Country:* {country}\n"
                 f"*Type:* {ad_type}\n"
                 f"*Period:* {period}\n"
                 f"*Keyword:* {keyword}",
@@ -538,7 +538,7 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
 
     niche = selected_pin.get("niche", [])
     placements = selected_pin.get("placements", [])
-    countries = selected_pin.get("countries", [])
+    country = selected_pin.get("country", [])
     ad_type = selected_pin.get("ad_type", "all")  # Default 'all'
     period = selected_pin.get("period", "week")  # Default 'week'
     keyword = selected_pin.get("keyword")
@@ -546,7 +546,7 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
         "telegram_id": str(callback.from_user.id),
         "niche": niche,
         "placements": placements,
-        "countries": countries,
+        "country": country,
         "ad_type": ad_type,
         "period": period,
         "keyword": keyword,

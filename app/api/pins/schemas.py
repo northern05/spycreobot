@@ -3,9 +3,9 @@ from pydantic import BaseModel, ConfigDict
 
 class Pin(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    niche_keywords: list
+    niche: str
     placements: list
-    countries: list
+    country: str
     ad_type: str
     period: str
     keyword: str

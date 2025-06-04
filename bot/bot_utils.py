@@ -23,7 +23,7 @@ class BotState(StatesGroup):
 class CreativesState(StatesGroup):
     choose_niche = State()
     choose_placement = State()
-    choose_countries = State()
+    choose_country = State()
     choose_type = State()
     choose_period = State()
     enter_keywords = State()
