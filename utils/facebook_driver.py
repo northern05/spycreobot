@@ -135,7 +135,7 @@ class FacebookAdsLibraryDriver:
             self,
             search_term: str,
             placements: Optional[List[str]],
-            countries: Optional[List[str]],
+            country: Optional[str],
             ad_type: Optional[str],
             period: str,
             limit: int,
@@ -145,7 +145,7 @@ class FacebookAdsLibraryDriver:
         params = {
             "access_token": self.access_token,
             "search_terms": search_term,
-            "ad_reached_countries": ",".join(countries) if countries else None,
+            "ad_reached_countries": country,
             "ad_active_status": "ALL",
             "media_type": ad_type if ad_type else "ALL",
             "fields": ",".join([
@@ -186,7 +186,7 @@ class FacebookAdsLibraryDriver:
             self,
             niche: str,
             placements: Optional[List[str]],
-            countries: Optional[List[str]],
+            country: Optional[str],
             ad_type: Optional[str],
             period: str,
             keyword: Optional[str],
@@ -220,7 +220,7 @@ class FacebookAdsLibraryDriver:
             ads_for_term, next_cursor_for_term = await self._search_single_term_ads(
                 search_term=search_term,
                 placements=placements,
-                countries=countries,
+                country=country,
                 ad_type=ad_type,
                 period=period,
                 limit=api_call_limit,
@@ -315,7 +315,7 @@ class FacebookAdsLibraryDriver:
         Args:
             page_size: The desired number of unique ads to return for this "page". Default to 4.
             **search_params: Parameters for the ad search (e.g., niche, placements,
-                             countries, ad_type, period, keyword).
+                             country, ad_type, period, keyword).
                              It can also include 'search_cursor' from a previous call
                              to continue the search.
 
@@ -453,7 +453,7 @@ if __name__ == '__main__':
                 page_size=page_size,
                 niche="gambling",  # Now specifically gambling
                 placements=["facebook", "instagram"],
-                countries=["GB"],  # Example country for gambling
+                country=["GB"],  # Example country for gambling
                 ad_type="all",
                 period="month",
                 keyword="casino",  # Broad keyword for gambling
@@ -478,7 +478,7 @@ if __name__ == '__main__':
                     search_cursor=search_cursor_page1,  # Pass the cursor from the previous page
                     niche="gambling",  # Re-pass original search parameters
                     placements=["facebook", "instagram"],
-                    countries=["GB"],
+                    country=["GB"],
                     ad_type="all",
                     period="month",
                     keyword="blackjack",  # Could be a different keyword to continue if first exhausted
