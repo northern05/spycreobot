@@ -184,7 +184,7 @@ class FacebookAdsLibraryDriver:
 
     async def _orchestrate_search_terms(
             self,
-            niche_keyword: str,
+            niche: str,
             placements: Optional[List[str]],
             countries: Optional[List[str]],
             ad_type: Optional[str],
@@ -206,7 +206,7 @@ class FacebookAdsLibraryDriver:
         generated_terms = []
 
         # Add all combinations from NICHE_KEYWORDS_COMBINATIONS for each relevant niche
-        for i, combo in enumerate(NICHE_KEYWORDS_COMBINATIONS.get(niche_keyword)):
+        for i, combo in enumerate(NICHE_KEYWORDS_COMBINATIONS.get(niche)):
             term_string = f'"{keyword} | {" | ".join(combo)}"'
             generated_terms.append(term_string)
 
@@ -314,7 +314,7 @@ class FacebookAdsLibraryDriver:
 
         Args:
             page_size: The desired number of unique ads to return for this "page". Default to 4.
-            **search_params: Parameters for the ad search (e.g., niche_keywords, placements,
+            **search_params: Parameters for the ad search (e.g., niche, placements,
                              countries, ad_type, period, keyword).
                              It can also include 'search_cursor' from a previous call
                              to continue the search.
@@ -451,7 +451,7 @@ if __name__ == '__main__':
             page_size = 10  # Request 4 ads per page
             ads_page1, search_cursor_page1 = await driver.get_ads_page(
                 page_size=page_size,
-                niche_keyword="gambling",  # Now specifically gambling
+                niche="gambling",  # Now specifically gambling
                 placements=["facebook", "instagram"],
                 countries=["GB"],  # Example country for gambling
                 ad_type="all",
@@ -476,7 +476,7 @@ if __name__ == '__main__':
                 ads_page2, search_cursor_page2 = await driver.get_ads_page(
                     page_size=page_size,
                     search_cursor=search_cursor_page1,  # Pass the cursor from the previous page
-                    niche_keyword="gambling",  # Re-pass original search parameters
+                    niche="gambling",  # Re-pass original search parameters
                     placements=["facebook", "instagram"],
                     countries=["GB"],
                     ad_type="all",
