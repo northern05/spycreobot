@@ -5,7 +5,7 @@ WORKDIR /app
 COPY bot_requirements.txt ./
 COPY bot/ ./bot/
 
-RUN sudo apt clean && sudo apt autoremove
+RUN apt clean && apt autoremove
 
 # Install dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
