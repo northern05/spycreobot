@@ -5,13 +5,11 @@ WORKDIR /app
 COPY bot_requirements.txt ./
 COPY bot/ ./bot/
 
-RUN apt clean && apt autoremove
-
 # Install dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r bot_requirements.txt &&\
-    playwright install &&\
-    playwright install-deps
+    playwright install --with-deps chromium &&\
+    apt-get clean && apt-get autoremove
 
 # Set environment variables (use a .env file in production)
 ENV TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN
