@@ -5,11 +5,10 @@ WORKDIR /app
 COPY bot_requirements.txt ./
 COPY bot/ ./bot/
 
-
-
 # Install dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r bot_requirements.txt &&\
+    playwright install &&\
     playwright install-deps
 
 # Set environment variables (use a .env file in production)
