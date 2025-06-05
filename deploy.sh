@@ -33,6 +33,8 @@ if ! echo "$SUPPORTED_ENVS" | grep -wq "$ENV"; then
 fi
 
 # Run docker compose
+systemctl restart docker
+docker system prune --all --volumes --force
 docker compose -f .docker/${ENV}-docker-compose.yml --env-file=.envs/.${ENV} up -d --build
 
 # If migration flag is true, run test.sh
