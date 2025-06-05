@@ -5,27 +5,12 @@ WORKDIR /app
 COPY bot_requirements.txt ./
 COPY bot/ ./bot/
 
-RUN apt-get update && apt-get install -y \
-    libglib2.0-0 \
-    libnss3 \
-    libx11-6 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxext6 \
-    libxrandr2 \
-    libxfixes3 \
-    libasound2 \
-    libgbm1 \
-    libatk1.0-0 \
-    libxkbcommon0 \
-    libxcb1 \
-    libexpat1 \
-    wget curl && apt-get clean
+
 
 # Install dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r bot_requirements.txt &&\
-    playwright install
+    playwright install-deps
 
 # Set environment variables (use a .env file in production)
 ENV TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN
