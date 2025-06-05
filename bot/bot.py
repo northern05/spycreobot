@@ -146,7 +146,7 @@ async def main_menu(event: types.Message | types.CallbackQuery):
 @tg_router.message(Command("credits_menu"))
 @tg_router.callback_query(F.data == "credits_menu")
 async def show_credits_menu(event: types.Message | types.CallbackQuery, bot: Bot):
-    telegram_id = event.from_user.id if event.from_user.id != SELF_ID else event.chat.id
+    telegram_id = event.from_user.id if str(event.from_user.id) != SELF_ID else event.chat.id
     chat_id = event.chat.id if isinstance(event, types.Message) else event.message.chat.id
 
     response = requests.get(f"{API_URL}/credits", params={"telegram_id": str(telegram_id)})
