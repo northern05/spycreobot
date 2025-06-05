@@ -7,7 +7,8 @@ COPY bot/ ./bot/
 
 # Install dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r bot_requirements.txt
+    pip install --no-cache-dir -r bot_requirements.txt &&\
+    playwright install
 
 # Set environment variables (use a .env file in production)
 ENV TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN

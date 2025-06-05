@@ -1,5 +1,4 @@
 import logging
-import mimetypes
 import os
 import re
 
@@ -8,9 +7,8 @@ import requests
 import string
 from urllib.parse import urlparse
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardMarkup
 from aiogram.fsm.state import State, StatesGroup
-from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright
 
 API_URL: str = os.environ.get('BASE_SITE', "https://api.agent.zpoken.dev/portfolio_tracker/api/v1/portfolio")
