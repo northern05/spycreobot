@@ -488,6 +488,7 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
         "period": period,
         "keyword": keyword,
     }
+    await state.update_data(data)
     await send_creos(json=data, message=callback.message, state=state, processing_message=processing_message)
 
 
