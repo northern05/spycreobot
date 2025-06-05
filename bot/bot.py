@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 from datetime import datetime
 from aiogram.client.default import DefaultBotProperties
-from aiogram.types import Message
+from aiogram.types import Message, InlineKeyboardButton
 from aiogram import Router, F, types, Bot, Dispatcher
 from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
