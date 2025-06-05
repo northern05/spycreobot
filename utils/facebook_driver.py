@@ -156,6 +156,7 @@ class FacebookAdsLibraryDriver:
                 "publisher_platforms",
                 "ad_delivery_start_time",
                 "ad_delivery_stop_time",
+                "ad_creative_link_urls",
                 "id"
             ]),
             "limit": limit,
@@ -297,7 +298,8 @@ class FacebookAdsLibraryDriver:
                 "platforms": ad_platforms,
                 "url": ad.get("ad_snapshot_url"),
                 "days_running": days_running,
-                "raw_ad_data": ad
+                "raw_ad_data": ad,
+                "type": ad.get("ad_creative_media_type")
             }
         except Exception as e:
             logging.exception(f"Unexpected error in _format_ad for ad ID {ad.get('id')}: {e}")
@@ -437,7 +439,7 @@ class FacebookAdsLibraryDriver:
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BOzZBHUsVxTET1wHEUX669qB1tfrA5XNT3kWVZCaDhKydFHTmrHWJaNekZCNJzhk4zw8HUZBOddZBoyN1aRXRP89ZCmEvaKrJXkYX3ZAzrG1iIAZBV6LWVTd7dY8wWqGlSlZBZCI71ZBZCqAnUrZCZC6huupJld3ZByOxZArZCyXIf76gZAZAskZCi3NewN2pyRlmQVmOHDkjbvneIxNkZAO3QttZB8kRe7eNp7t2mNihZCStgZDZD",
+            access_token="EAAKCNpvlGQ8BO0ZC7glot3JVN3JYAYJWmpBHp6AJs6fxzI3j1dRHzct6HcSAi5d6rbtLZCdQSuwjTP0XVLvgyhodxJONky70PgzEsGncpgujg97WLZCyQvYvZBF2zZC78OpZAb5AOmcEd9wIkzjlEZAMxd7JOaNzmbQKIOyof8ZCJWpZA7vp1IgMfU8GZBdOMvra1XWQHwG2LUZC5e2YBc2RZA1aKJeGQ5X3O42NwcKjiHAIAQZDZD",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"
@@ -467,6 +469,7 @@ if __name__ == '__main__':
                 print(f"  Body (first 100 chars): {ad.get('body')[:100]}...")
                 print(f"  URL: {ad.get('url')}")
                 print(f"  Days Running: {ad.get('days_running')}")
+                print(f"  Type: {ad.get('')}")
                 print("-" * 20)
             print(f"Next search cursor for Page 1: {'exists' if search_cursor_page1 else 'None'}")
 

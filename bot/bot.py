@@ -2,7 +2,7 @@ from typing import Union
 from types import SimpleNamespace
 from datetime import datetime
 from aiogram.client.default import DefaultBotProperties
-from aiogram.types import Message, InputMediaPhoto, InputMediaVideo, BufferedInputFile
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
 from aiogram import Router, F, types, Bot, Dispatcher
 from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
@@ -101,7 +101,8 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
     await message.answer(
         "Hi! I am a robust ad spy tool designed specifically for marketers, ad creators, and e-commerce sellers. "
         "With BigSpy, users can gain deep insights into market trends, optimize ad creatives, and gain a competitive edge.")
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Already added", callback_data="main_menu")]])
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text="Already added", callback_data="main_menu")]])
     await message.answer("Enter your crypto-wallet to authorize:", reply_markup=keyboard)
 
 
@@ -256,7 +257,7 @@ async def handle_niche_selection(callback: types.CallbackQuery, state: FSMContex
     await state.set_data({"niche": niche})
     await state.set_state(CreativesState.choose_placement)
 
-    placements = ["Facebook", "Instagram", "TikTok", "Google"]
+    placements = ["Facebook", "Instagram", "Messenger", "Audience_network"]
     buttons = [InlineKeyboardButton(text=p, callback_data=f"placement:{p.lower()}") for p in placements]
     rows = [[buttons[i], buttons[i + 1]] for i in range(0, len(buttons), 2)]
     rows.append([InlineKeyboardButton(text="✅ Submit", callback_data="placement_submit")])
@@ -266,7 +267,8 @@ async def handle_niche_selection(callback: types.CallbackQuery, state: FSMContex
         "placements": []
     }
 
-    await callback.message.answer(f"Niche selected: {niche.capitalize()}\nNow choose placements:", reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
+    await callback.message.answer(f"Niche selected: {niche.capitalize()}\nNow choose placements:",
+                                  reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
     await delete_previous_message(bot, callback.message.chat.id, callback.message.message_id)
     await callback.answer()
 
@@ -291,7 +293,6 @@ async def toggle_placement(callback: types.CallbackQuery, state: FSMContext):
 async def submit_placements(callback: types.CallbackQuery, state: FSMContext):
     selected = user_selection_state.get(callback.from_user.id, {}).get("placements", [])
     await state.update_data({"placements": selected})
-    await delete_previous_message(bot, callback.message.chat.id, callback.message.message_id)
     await callback.message.answer("🌍 Enter geo code:")
     await state.set_state(CreativesState.choose_country)
     await delete_previous_message(bot, callback.message.chat.id, callback.message.message_id)
@@ -304,10 +305,9 @@ async def submit_country(message: types.Message, state: FSMContext):
     if len(text) < 2 or len(text) > 4:
         await message.answer("❌ Wrong geo code format. Please enter valid country code (e.g. US,CA,UA).")
         return
-    await delete_previous_message(bot, message.chat.id, message.message_id)
     await state.update_data({"country": text})
     await state.set_state(CreativesState.choose_type)
-    types_ = ["image", "video", "meme", "all"]
+    types_ = ["image", "video", "all"]
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[[InlineKeyboardButton(text=t.capitalize(), callback_data=f"media:{t}") for t in types_]]
     )
@@ -370,106 +370,7 @@ async def get_creatives(message: types.Message, state: FSMContext):
         "period": data.get("period"),
         "keyword": data.get("keyword"),
     }
-    response = requests.get(url=f"{API_URL}/creatives", json=json)
-    if response.status_code == 402:
-        await message.answer("You have not enough credits to get creatives! \nTo continue - buy credits!")
-        await show_credits_menu(event=message, bot=bot)
-    elif response.status_code == 200:
-        data = response.json()
-        await bot.delete_message(
-            chat_id=processing_message.chat.id,
-            message_id=processing_message.message_id
-        )
-        if not data.get("ads"):
-            await message.answer("No ads by your query", parse_mode='MarkdownV2')
-
-        ads = data.get("ads")
-        search_cursor = data.get("search_cursor")
-        await state.update_data({"search_cursor": search_cursor})
-
-        media_group = []
-        temp_files = []  # Для зберігання шляхів до тимчасових файлів
-
-        for creative in ads:
-            url = creative.get('url')
-            if not url:
-                logging.warning(f"Оголошення з ID {creative.get('id')} не має URL. Пропускаємо.")
-                continue
-
-            temp_filename = f"ad_{creative['id']}_{os.path.basename(url).split('?')[0].split('/')[-1]}"
-            # Додаємо розширення, якщо його немає, або залишаємо, якщо є
-            if '.' not in temp_filename:
-                temp_filename += '.png'  # Припустимо, більшість - це зображення, або визначте тип раніше
-
-            temp_path = os.path.join("/tmp", temp_filename)
-
-            # Завантажуємо файл
-            logging.info(f"Завантажуємо: {url} до {temp_path}")
-            download_success = await download_file(url, temp_path)
-
-            if download_success and os.path.exists(temp_path):
-                file_type = get_media_type_from_url(temp_path)
-
-                # Обрізаємо підпис для Telegram (до 1024 символів)
-                caption_text = (
-                    f"*{creative.get('title', 'Оголошення')}*\n\n"
-                    f"{creative.get('body', '')[:300]}...\n"  # Обрізаємо body для підпису
-                    f"[Оригінальне оголошення]({url})"
-                )
-                if len(caption_text) > 1024:
-                    caption_text = caption_text[:1020] + "..."
-
-                with open(temp_path, 'rb') as f:
-                    if file_type == 'photo':
-                        media_group.append(InputMediaPhoto(media=BufferedInputFile(f.read(), filename=temp_filename),
-                                                           caption=caption_text, parse_mode="Markdown"))
-                    elif file_type == 'video':
-                        media_group.append(InputMediaVideo(media=BufferedInputFile(f.read(), filename=temp_filename),
-                                                           caption=caption_text, parse_mode="Markdown"))
-                    else:
-                        logging.warning(f"Невідомий тип медіа для {url}. Пропускаємо.")
-                temp_files.append(temp_path)  # Зберігаємо шлях для подальшого видалення
-            else:
-                logging.error(f"Не вдалося завантажити або знайти файл: {url}")
-                # Можна відправити текстове посилання, якщо не вдалося завантажити медіа
-                await message.answer(f"Не вдалося завантажити оголошення: [Посилання]({url})", parse_mode="Markdown",
-                                     disable_web_page_preview=True)
-
-            # Ліміт на медіа-групу 10 елементів
-            if len(media_group) >= 10:
-                break  # Вийти з циклу, щоб відправити поточну групу
-
-        # Видаляємо повідомлення про обробку
-        await bot.delete_message(
-            chat_id=processing_message.chat.id,
-            message_id=processing_message.message_id
-        )
-
-        # Відправка медіа-групи
-        if media_group:
-            try:
-                await bot.send_media_group(chat_id=message.chat.id, media=media_group)
-                logging.info(f"Відправлено медіа-групу з {len(media_group)} елементів.")
-            except Exception as e:
-                logging.error(f"Помилка при відправці медіа-групи: {e}")
-                await message.answer("Виникла помилка при відправці оголошень.")
-        else:
-            await message.answer("Не знайдено оголошень для відображення після завантаження та фільтрації.",
-                                 parse_mode='Markdown')
-
-        # Очистка тимчасових файлів
-        for f_path in temp_files:
-            if os.path.exists(f_path):
-                os.remove(f_path)
-                logging.info(f"Видалено тимчасовий файл: {f_path}")
-
-        # Клавіатура для наступних дій
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[[InlineKeyboardButton(text="Next", callback_data="next_ads_search")],
-                             [InlineKeyboardButton(text="Main menu", callback_data="main_menu")],
-                             [InlineKeyboardButton(text="Pin search", callback_data="pin_search")]]
-        )
-        await message.answer("Do you want to get next creatives?", reply_markup=keyboard)
+    await send_creos(json=json, message=message, state=state, processing_message=processing_message)
 
 
 @tg_router.callback_query(F.data == "next_ads_search")
@@ -487,35 +388,7 @@ async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
         "keyword": state_data.get("keyword"),
         "search_cursor": state_data.get("search_cursor")
     }
-    response = requests.get(url=f"{API_URL}/creatives", json=json)
-    if response.status_code == 402:
-        await callback.message.answer("You have not enough credits to get creatives! \nTo continue - buy credits!")
-        await show_credits_menu(event=callback, bot=bot)
-    elif response.status_code == 200:
-        data = response.json()
-        await bot.delete_message(
-            chat_id=processing_message.chat.id,
-            message_id=processing_message.message_id
-        )
-        if not data:
-            await callback.message.answer("No ads by your query.", parse_mode='MarkdownV2')
-
-        ads = data.get("ads")
-        search_cursor = data.get("search_cursor")
-        await state.update_data({"search_cursor": search_cursor})
-
-        for creative in ads:
-            url = creative.get('url')
-            await callback.message.answer(escape_markdown(url), parse_mode='MarkdownV2', disable_web_page_preview=False)
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[[InlineKeyboardButton(text="Next", callback_data="next_ads_search")],
-                             [InlineKeyboardButton(text="Main menu", callback_data="main_menu")],
-                             [InlineKeyboardButton(text="Pin search", callback_data="pin_search")]]
-        )
-        await callback.message.answer("Do you want to get next 10 creatives?", reply_markup=keyboard)
-    else:
-        await callback.message.answer("Something went wrong!")
-        await main_menu(event=callback)
+    await send_creos(json=json, message=callback.message, state=state, processing_message=processing_message)
 
 
 @tg_router.callback_query(F.data == "pin_search")
@@ -616,107 +489,7 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
         "period": period,
         "keyword": keyword,
     }
-
-    response = requests.get(url=f"{API_URL}/creatives", json=data)
-
-    await bot.delete_message(callback.message.chat.id, processing_message.message_id)
-
-    if response.status_code == 200:
-        result = response.json()
-        ads = result.get("ads", [])
-        search_cursor = result.get("search_cursor")
-
-        await state.update_data({
-            "search_cursor": search_cursor
-        })
-
-        if not ads:
-            await callback.message.answer("No creatives found")
-            return
-
-        media_group = []
-        temp_files = []  # Для зберігання шляхів до тимчасових файлів
-
-        for creative in ads:
-            url = creative.get('url')
-            if not url:
-                logging.warning(f"Оголошення з ID {creative.get('id')} не має URL. Пропускаємо.")
-                continue
-
-            temp_filename = f"ad_{creative['id']}_{os.path.basename(url).split('?')[0].split('/')[-1]}"
-            # Додаємо розширення, якщо його немає, або залишаємо, якщо є
-            if '.' not in temp_filename:
-                temp_filename += '.png'  # Припустимо, більшість - це зображення, або визначте тип раніше
-
-            temp_path = os.path.join("/tmp", temp_filename)
-
-            # Завантажуємо файл
-            logging.info(f"Завантажуємо: {url} до {temp_path}")
-            download_success = await download_file(url, temp_path)
-
-            if download_success and os.path.exists(temp_path):
-                file_type = get_media_type_from_url(temp_path)
-
-                # Обрізаємо підпис для Telegram (до 1024 символів)
-                caption_text = (
-                    f"*{creative.get('title', 'Оголошення')}*\n\n"
-                    f"{creative.get('body', '')[:300]}...\n"  # Обрізаємо body для підпису
-                    f"[Оригінальне оголошення]({url})"
-                )
-                if len(caption_text) > 1024:
-                    caption_text = caption_text[:1020] + "..."
-
-                with open(temp_path, 'rb') as f:
-                    if file_type == 'photo':
-                        media_group.append(InputMediaPhoto(media=BufferedInputFile(f.read(), filename=temp_filename),
-                                                           caption=caption_text, parse_mode="Markdown"))
-                    elif file_type == 'video':
-                        media_group.append(InputMediaVideo(media=BufferedInputFile(f.read(), filename=temp_filename),
-                                                           caption=caption_text, parse_mode="Markdown"))
-                    else:
-                        logging.warning(f"Невідомий тип медіа для {url}. Пропускаємо.")
-                temp_files.append(temp_path)  # Зберігаємо шлях для подальшого видалення
-            else:
-                logging.error(f"Не вдалося завантажити або знайти файл: {url}")
-                # Можна відправити текстове посилання, якщо не вдалося завантажити медіа
-                await callback.message.answer(f"Не вдалося завантажити оголошення: [Посилання]({url})", parse_mode="Markdown",
-                                     disable_web_page_preview=True)
-
-            # Ліміт на медіа-групу 10 елементів
-            if len(media_group) >= 10:
-                break  # Вийти з циклу, щоб відправити поточну групу
-
-        # Видаляємо повідомлення про обробку
-        await bot.delete_message(
-            chat_id=processing_message.chat.id,
-            message_id=processing_message.message_id
-        )
-
-        # Відправка медіа-групи
-        if media_group:
-            try:
-                await bot.send_media_group(chat_id=callback.message.chat.id, media=media_group)
-                logging.info(f"Відправлено медіа-групу з {len(media_group)} елементів.")
-            except Exception as e:
-                logging.error(f"Помилка при відправці медіа-групи: {e}")
-                await callback.message.answer("Виникла помилка при відправці оголошень.")
-        else:
-            await callback.message.answer("Не знайдено оголошень для відображення після завантаження та фільтрації.",
-                                 parse_mode='Markdown')
-
-        # Очистка тимчасових файлів
-        for f_path in temp_files:
-            if os.path.exists(f_path):
-                os.remove(f_path)
-                logging.info(f"Видалено тимчасовий файл: {f_path}")
-
-        # Клавіатура для наступних дій
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[[InlineKeyboardButton(text="Next", callback_data="next_ads_search")],
-                             [InlineKeyboardButton(text="Main menu", callback_data="main_menu")],
-                             [InlineKeyboardButton(text="Pin search", callback_data="pin_search")]]
-        )
-        await callback.message.answer("Do you want to get next creatives?", reply_markup=keyboard)
+    await send_creos(json=data, message=callback.message, state=state, processing_message=processing_message)
 
 
 @tg_router.callback_query(F.data.startswith("pin_delete:"))
@@ -728,6 +501,49 @@ async def delete_saved_pin(callback: types.CallbackQuery, state: FSMContext):
     else:
         await callback.message.answer("Something went wrong.")
         await main_menu(callback.message)
+
+
+async def send_creos(
+        json: dict,
+        message: types.Message,
+        state: FSMContext,
+        processing_message: types.Message
+):
+    response = requests.get(url=f"{API_URL}/creatives", json=json)
+    if response.status_code == 402:
+        await message.answer("You have not enough credits to get creatives! \nTo continue - buy credits!")
+        await show_credits_menu(event=message, bot=bot)
+    elif response.status_code == 200:
+        data = response.json()
+
+        if not data.get("ads"):
+            await message.answer("No ads by your query", parse_mode='MarkdownV2')
+
+        ads = data.get("ads")
+        search_cursor = data.get("after")
+        await state.update_data({"search_cursor": search_cursor})
+        await bot.delete_message(
+            chat_id=processing_message.chat.id,
+            message_id=processing_message.message_id
+        )
+        for creative in ads:
+            url = creative.get('url')
+            media_url = await extract_media_from_network(url)
+            if "video" in media_url:
+                await bot.send_video(chat_id=message.chat.id, video=media_url)
+            elif any(ext in media_url for ext in [".jpg", ".jpeg", ".png"]):
+                await bot.send_photo(chat_id=message.chat.id, photo=media_url)
+            else:
+                await bot.send_message(chat_id=message.chat.id, text=f"🔗 [Open media]({url})", parse_mode="Markdown")
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="Next", callback_data="next_ads_search")],
+                             [InlineKeyboardButton(text="Main menu", callback_data="main_menu")],
+                             [InlineKeyboardButton(text="Pin search", callback_data="pin_search")]]
+        )
+        await message.answer("Do you want to get next 10 creatives?", reply_markup=keyboard)
+    else:
+        await message.answer("Something went wrong!")
+        await main_menu(event=message)
 
 
 if __name__ == "__main__":
