@@ -159,7 +159,6 @@ async def extract_media_from_network(fb_ad_url: str) -> str | None:
                 # Пріоритет: відео з найбільшою довжиною URL (як проксі на розмір)
                 video_urls.sort(key=len, reverse=True)
                 best_video = video_urls[0]
-                print("[🎥] Відео обрано:", best_video)
                 return best_video
 
             # 🖼 Всі зображення
@@ -168,10 +167,7 @@ async def extract_media_from_network(fb_ad_url: str) -> str | None:
                 # Пріоритет: зображення з найбільшою вказаною роздільною здатністю
                 image_urls.sort(key=extract_size_score, reverse=True)
                 best_image = image_urls[0]
-                print("[🖼️] Зображення обрано:", best_image)
                 return best_image
-
-            print("[❌] Жодне відео чи зображення не підійшло")
             return None
 
         page.on("response", handle_response)
@@ -182,11 +178,9 @@ async def extract_media_from_network(fb_ad_url: str) -> str | None:
         # await browser.close()
 
         if media_urls:
-            print("[✅] Знайдено медіа:", media_urls[0])
             best_media = choose_best_media(media_urls)
             return best_media
         else:
-            print("[❌] Жодне медіа не знайдено")
             return None
 
 

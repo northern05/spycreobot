@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,7 +25,7 @@ async def check_telegram_id_wallet(
     if not user.telegram_id: user.telegram_id = auth_in.telegram_id
     if new_user: await credits_crud.create(
         session=session,
-        credits_data=credits_schemas.CreditsCreate(user_id=user.id, credits=5)
+        credits_data=credits_schemas.CreditsCreate(user_id=user.id, credits=5, updated_at=datetime.now())
     )
     await session.commit()
     return user
