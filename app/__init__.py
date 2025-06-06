@@ -6,12 +6,10 @@ from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exception_handlers import http_exception_handler
-from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.models import db_helper, Base
 from app.api import router as router_v1
 from app.core.config import config
-from utils.extra import check_payments
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -32,37 +30,6 @@ app = FastAPI(
     openapi_url="/docs.json",
     docs_url="/docs"
 )
-
-
-class LogRequestBodyMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        # Log request details
-        logging.info(f"Incoming Request: {request.method} {request.url}")
-        logging.info(f"Request Headers: {request.headers}")
-
-        # Check if there's a request body and if it's JSON
-        if request.method in ["POST", "PUT", "PATCH"]:
-            try:
-                # Read the request body
-                body = await request.body()
-                logging.info(f"Request Body: {body.decode('utf-8')}")
-
-                # If you specifically want to parse JSON and log it,
-                # you might need to handle the stream carefully.
-                # However, for debugging 422s, the raw body is often enough.
-                # If you need to access the parsed JSON later in the request,
-                # you'll need to re-create the stream or store it.
-                # For logging, just reading it is fine.
-
-            except Exception as e:
-                logging.error(f"Error reading request body: {e}")
-
-        response = await call_next(request)
-        logging.info(f"Response Status: {response.status_code}")
-        return response
-
-
-app.add_middleware(LogRequestBodyMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -102,18 +69,18 @@ async def format_request(request: Request):
 
 
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.ERROR)
 
 # create formatter
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
 # add formatter to handlers
 if len(logger.handlers) > 0:
-    logger.handlers[0].setLevel(logging.DEBUG)
+    logger.handlers[0].setLevel(logging.ERROR)
     logger.handlers[0].setFormatter(formatter)
 else:
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.DEBUG)
+    console_handler.setLevel(logging.ERROR)
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
 

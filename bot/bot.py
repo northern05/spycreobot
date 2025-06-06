@@ -411,7 +411,7 @@ async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
         "niche": state_data.get("niche"),
         "placements": state_data.get("placements"),
         "country": state_data.get("country"),
-        "ad_type": state_data.get("media_types"),
+        "ad_type": state_data.get("ad_type"),
         "period": state_data.get("period"),
         "keyword": state_data.get("keyword"),
         "search_cursor": state_data.get("search_cursor")
@@ -427,7 +427,7 @@ async def pin_search(message: types.Message, state: FSMContext):
         "niche": data.get("niche"),
         "placements": data.get("placements"),
         "country": data.get("country"),
-        "ad_type": data.get("media_types"),
+        "ad_type": data.get("ad_type"),
         "period": data.get("period"),
         "keyword": data.get("keyword"),
     }
