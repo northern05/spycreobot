@@ -467,14 +467,16 @@ async def get_fav_creatives(callback: types.CallbackQuery, state: FSMContext):
                     [InlineKeyboardButton(text="Delete search", callback_data=f"pin_delete:{pin_id}")]
                 ]
             )
-
-            await callback.message.answer(
+            msg = (
                 f"*Niche:* {niche}\n"
                 f"*Placements:* {placements}\n"
                 f"*Country:* {country}\n"
                 f"*Type:* {ad_type}\n"
                 f"*Period:* {period}\n"
-                f"*Keyword:* {keyword}",
+            )
+            if keyword: msg += f"*Keyword:* {keyword}"
+            await callback.message.answer(
+                msg,
                 parse_mode="Markdown",
                 reply_markup=keyboard
             )
