@@ -8,7 +8,7 @@ class Pin(BaseModel):
     country: str
     ad_type: str
     period: str
-    keyword: str
+    keyword: str | None = None
 
 
 class PinCreate(Pin):
