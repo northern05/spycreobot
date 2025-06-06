@@ -13,11 +13,10 @@ CONTENT_CHAR_LIMIT = 3000
 
 NICHE_KEYWORDS_COMBINATIONS = {
     "gambling": [
-        ["online", "bonus", "slot"],
-        ["free", "spin", "download"],
-        ["casino", "jackpot", "win"],
-        ["lucky", "welcome", "deposit"],
-        ["withdraw", "fbp", "game"],
+        ["online", "bonus", "slot", "withdraw"],
+        ["free", "spin", "download", "fbp"],
+        ["casino", "jackpot", "win", "game"],
+        ["lucky", "welcome", "deposit"]
     ],
     "crypto": [
         ["crypto", "nft"],
@@ -190,10 +189,10 @@ class FacebookAdsLibraryDriver:
             country: Optional[str],
             ad_type: Optional[str],
             period: str,
-            keyword: Optional[str],
             api_call_limit: int,
             start_combination_index: int,  # This will be the index into the generated_terms list
-            start_cursor: Optional[str]  # This is the cursor for the specific search_term
+            start_cursor: Optional[str],  # This is the cursor for the specific search_term
+            keyword: Optional[str] = None
     ) -> Tuple[List[Dict[str, Any]], Optional[str], int]:
         """
         Orchestrates calls to _search_single_term_ads using generated keyword combinations.
@@ -208,7 +207,8 @@ class FacebookAdsLibraryDriver:
 
         # Add all combinations from NICHE_KEYWORDS_COMBINATIONS for each relevant niche
         for i, combo in enumerate(NICHE_KEYWORDS_COMBINATIONS.get(niche)):
-            term_string = f'"{keyword} | {" | ".join(combo)}"'
+            term_string = " | ".join(combo)
+            if keyword: term_string += f" | {keyword}"
             generated_terms.append(term_string)
 
         current_combination_index = start_combination_index

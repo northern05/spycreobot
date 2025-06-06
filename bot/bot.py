@@ -352,14 +352,33 @@ async def handle_period_selection(callback: types.CallbackQuery, state: FSMConte
 
 @tg_router.message(CreativesState.enter_keywords)
 async def get_creatives(message: types.Message, state: FSMContext):
+    # Кнопка "Skip"
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔽 Skip keyword", callback_data="skip_keyword")]
+    ])
     await delete_previous_message(bot, message.chat.id, message.message_id)
-    await message.answer("✅ All filters selected! Proceeding...")
+    await message.answer(
+        "🔤 Please enter a keyword to filter creatives, or press *Skip* to continue without it:",
+        reply_markup=keyboard,
+        parse_mode="Markdown"
+    )
+
+
+@tg_router.callback_query(F.data == "skip_keyword")
+async def handle_skip_keyword(callback: types.CallbackQuery, state: FSMContext):
+    await callback.message.delete()
+    await state.update_data({"keyword": None})
+
+    await proceed_creative_search(callback.message, state)
+
+
+async def proceed_creative_search(message: types.Message, state: FSMContext):
     processing_message = await message.answer_animation(animation=GIF_URL,
                                                         caption="Processing your request...")
+
     telegram_id = message.from_user.id if message.from_user.id != SELF_ID else message.chat.id
-    keyword = message.text
-    await state.update_data({"keyword": keyword})
     data = await state.get_data()
+
     json = {
         "telegram_id": str(telegram_id),
         "niche": data.get("niche"),
@@ -367,8 +386,9 @@ async def get_creatives(message: types.Message, state: FSMContext):
         "country": data.get("country"),
         "ad_type": data.get("media_types"),
         "period": data.get("period"),
-        "keyword": data.get("keyword"),
+        "keyword": data.get("keyword")  # може бути None
     }
+
     await send_creos(json=json, message=message, state=state, processing_message=processing_message)
 
 
@@ -529,12 +549,30 @@ async def send_creos(
         for creative in ads:
             url = creative.get('url')
             media_url = await extract_media_from_network(url)
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[[InlineKeyboardButton(text="🔗 Open Ad in Browser", url=url)]]
+            )
+
             if "video" in media_url:
-                await bot.send_video(chat_id=message.chat.id, video=media_url)
+                await bot.send_video(
+                    chat_id=message.chat.id,
+                    video=media_url,
+                    reply_markup=keyboard
+                )
             elif any(ext in media_url for ext in [".jpg", ".jpeg", ".png"]):
-                await bot.send_photo(chat_id=message.chat.id, photo=media_url)
+                await bot.send_photo(
+                    chat_id=message.chat.id,
+                    photo=media_url,
+                    reply_markup=keyboard
+                )
             else:
-                await bot.send_message(chat_id=message.chat.id, text=f"🔗 [Open media]({url})", parse_mode="Markdown")
+                # fallback якщо немає медіа, лише лінк
+                await bot.send_message(
+                    chat_id=message.chat.id,
+                    text=f"🔗 [Open media]({url})",
+                    parse_mode="Markdown",
+                    reply_markup=keyboard
+                )
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text="Next", callback_data="next_ads_search")],
                              [InlineKeyboardButton(text="Main menu", callback_data="main_menu")],

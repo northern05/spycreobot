@@ -23,5 +23,5 @@ class CreativeRequest(BaseModel):
     country: str
     ad_type: str
     period: str
-    keyword: str
+    keyword: str | None = None
     search_cursor: dict | None = None
