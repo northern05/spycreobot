@@ -483,8 +483,7 @@ if __name__ == '__main__':
                     placements=["facebook", "instagram"],
                     country=["GB"],
                     ad_type="all",
-                    period="month",
-                    keyword="blackjack",  # Could be a different keyword to continue if first exhausted
+                    period="month"
                 )
                 print(f"Collected {len(ads_page2)} ads for Page 2.")
                 for i, ad in enumerate(ads_page2):

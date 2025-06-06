@@ -107,7 +107,7 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
 
 @tg_router.message(BotState.entering_wallet)
 async def save_wallet(message: types.Message, state: FSMContext):
-    telegram_id = message.from_user.id if message.from_user.id != SELF_ID else message.chat.id
+    telegram_id = message.from_user.id if str(message.from_user.id) != SELF_ID else message.chat.id
     wallet = message.text.strip()
     result, msg = validate_wallet(address=wallet)
     if result:
@@ -210,7 +210,7 @@ async def buy_credits(message: types.Message, state: FSMContext):
 @tg_router.message(Command("check_payment"))
 @tg_router.callback_query(F.data == "check_payment")
 async def buy_credits(callback: types.CallbackQuery, state: FSMContext):
-    telegram_id = callback.from_user.id if callback.from_user.id != SELF_ID else callback.message.chat.id
+    telegram_id = callback.from_user.id if str(callback.from_user.id) != SELF_ID else callback.message.chat.id
     credits_count = await state.get_data()
     response = requests.post(f"{API_URL}/credits", json={
         "telegram_id": str(telegram_id),
@@ -292,13 +292,21 @@ async def toggle_placement(callback: types.CallbackQuery, state: FSMContext):
 async def submit_placements(callback: types.CallbackQuery, state: FSMContext):
     selected = user_selection_state.get(callback.from_user.id, {}).get("placements", [])
     await state.update_data({"placements": selected})
-    await callback.message.answer("🌍 Enter geo code:")
-    await state.set_state(CreativesState.choose_country)
     await delete_previous_message(bot, callback.message.chat.id, callback.message.message_id)
+    geo_msg = await callback.message.answer("🌍 Enter geo code:")
+    await state.update_data({"last_msg_id": geo_msg.message_id})
+    await state.set_state(CreativesState.choose_country)
 
 
 @tg_router.message(CreativesState.choose_country)
 async def submit_country(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    last_msg_id = data.get("last_msg_id")
+    if last_msg_id:
+        try:
+            await bot.delete_message(chat_id=message.chat.id, message_id=last_msg_id)
+        except Exception:
+            pass
     await delete_previous_message(bot, message.chat.id, message.message_id)
     text = message.text.strip().upper()
     if len(text) < 2 or len(text) > 4:
@@ -311,7 +319,6 @@ async def submit_country(message: types.Message, state: FSMContext):
         inline_keyboard=[[InlineKeyboardButton(text=t.capitalize(), callback_data=f"media:{t}") for t in types_]]
     )
     await message.answer("Choose ad types:", reply_markup=keyboard)
-    await delete_previous_message(bot, message.chat.id, message.message_id)
 
 
 @tg_router.callback_query(CreativesState.choose_type)
@@ -343,25 +350,27 @@ async def submit_media(callback: types.CallbackQuery, state: FSMContext):
 async def handle_period_selection(callback: types.CallbackQuery, state: FSMContext):
     period = callback.data.split(":")[1]
     await state.update_data({"period": period})
-    await callback.message.answer(f"You selected period: {period}\nEnter keywords for creatives search:",
-                                  parse_mode="MarkdownV2")
     await callback.answer()
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔽 Skip keyword", callback_data="skip_keyword")]
+    ])
+
+    await callback.message.answer(
+        f"You selected period: {period}\n\n🔤 Please enter a keyword to filter creatives, or press *Skip* to continue without it:",
+        reply_markup=keyboard,
+        parse_mode="Markdown"
+    )
+
     await state.set_state(CreativesState.enter_keywords)
     await delete_previous_message(bot, callback.message.chat.id, callback.message.message_id)
 
 
 @tg_router.message(CreativesState.enter_keywords)
-async def get_creatives(message: types.Message, state: FSMContext):
-    # Кнопка "Skip"
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔽 Skip keyword", callback_data="skip_keyword")]
-    ])
+async def handle_keyword_input(message: types.Message, state: FSMContext):
+    keyword = message.text.strip()
     await delete_previous_message(bot, message.chat.id, message.message_id)
-    await message.answer(
-        "🔤 Please enter a keyword to filter creatives, or press *Skip* to continue without it:",
-        reply_markup=keyboard,
-        parse_mode="Markdown"
-    )
+    await state.update_data({"keyword": keyword})
+    await proceed_creative_search(message, state)
 
 
 @tg_router.callback_query(F.data == "skip_keyword")
@@ -376,7 +385,7 @@ async def proceed_creative_search(message: types.Message, state: FSMContext):
     processing_message = await message.answer_animation(animation=GIF_URL,
                                                         caption="Processing your request...")
 
-    telegram_id = message.from_user.id if message.from_user.id != SELF_ID else message.chat.id
+    telegram_id = message.from_user.id if str(message.from_user.id) != SELF_ID else message.chat.id
     data = await state.get_data()
 
     json = {
@@ -412,7 +421,7 @@ async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
 
 @tg_router.callback_query(F.data == "pin_search")
 async def pin_search(message: types.Message, state: FSMContext):
-    telegram_id = message.from_user.id if message.from_user.id != SELF_ID else message.chat.id
+    telegram_id = message.from_user.id if str(message.from_user.id) != SELF_ID else message.chat.id
     data = await state.get_data()
     json = {
         "niche": data.get("niche"),
@@ -432,7 +441,7 @@ async def pin_search(message: types.Message, state: FSMContext):
 
 @tg_router.callback_query(F.data == "get_fav_creatives")
 async def get_fav_creatives(callback: types.CallbackQuery, state: FSMContext):
-    telegram_id = callback.from_user.id if callback.from_user.id != SELF_ID else callback.message.chat.id
+    telegram_id = callback.from_user.id if str(callback.from_user.id) != SELF_ID else callback.message.chat.id
     response = requests.get(url=f"{API_URL}/pins", params={"telegram_id": str(telegram_id)})
 
     if response.status_code == 200:
