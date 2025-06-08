@@ -324,15 +324,15 @@ async def submit_country(message: types.Message, state: FSMContext):
 @tg_router.callback_query(CreativesState.choose_type)
 async def toggle_media_type(callback: types.CallbackQuery, state: FSMContext):
     media = callback.data.split(":")[1]
-    user_selection_state[callback.from_user.id]["media_types"] = media
+    user_selection_state[callback.from_user.id]["ad_type"] = media
     await callback.answer(f"Selected type: {media.capitalize()}")
     await submit_media(callback, state)
 
 
 @tg_router.callback_query(F.data == "media_submit")
 async def submit_media(callback: types.CallbackQuery, state: FSMContext):
-    selected = user_selection_state.get(callback.from_user.id, {}).get("media_types", [])
-    await state.update_data({"media_types": selected})
+    selected = user_selection_state.get(callback.from_user.id, {}).get("ad_type", [])
+    await state.update_data({"ad_type": selected})
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="Week", callback_data="period:week"),
@@ -393,7 +393,7 @@ async def proceed_creative_search(message: types.Message, state: FSMContext):
         "niche": data.get("niche"),
         "placements": data.get("placements"),
         "country": data.get("country"),
-        "ad_type": data.get("media_types"),
+        "ad_type": data.get("ad_type"),
         "period": data.get("period"),
         "keyword": data.get("keyword")  # може бути None
     }
@@ -564,13 +564,13 @@ async def send_creos(
                 inline_keyboard=[[InlineKeyboardButton(text="🔗 Open Ad in Browser", url=url)]]
             )
 
-            if "video" in media_url:
+            if media_url and "video" in media_url:
                 await bot.send_video(
                     chat_id=message.chat.id,
                     video=media_url,
                     reply_markup=keyboard
                 )
-            elif any(ext in media_url for ext in [".jpg", ".jpeg", ".png"]):
+            elif media_url and any(ext in media_url for ext in [".jpg", ".jpeg", ".png"]):
                 await bot.send_photo(
                     chat_id=message.chat.id,
                     photo=media_url,

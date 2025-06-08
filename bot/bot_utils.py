@@ -144,7 +144,7 @@ async def extract_media_from_network(fb_ad_url: str) -> str | None:
                 return ".mp4" in url and "video" in url and "fbcdn.net" in url
 
             def is_valid_image(url):
-                return re.search(r'\.(jpg|jpeg|png)', url) and "fbcdn.net" in url and "s60x60" not in url
+                return re.search(r'\.(jpg|jpeg|png)', url) and "fbcdn.net" in url and "s60x60" not in url and "static" not in url
 
             def extract_size_score(url: str) -> int:
                 # s640x640 → площа 640*640 = 409600
