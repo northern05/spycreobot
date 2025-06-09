@@ -10,6 +10,8 @@ class CreativeBase(BaseModel):
     platforms: list
     url: str
     days_running: int
+    page_id: str | None = None
+    media_url: str
 
 
 class CreativeResponse(CreativeBase):
@@ -24,4 +26,12 @@ class CreativeRequest(BaseModel):
     ad_type: str
     period: str
     keyword: str | None = None
+    search_cursor: dict | None = None
+
+
+class SimilarCreativeRequest(BaseModel):
+    telegram_id: str
+    country: str
+    page_id: str
+    niche: str
     search_cursor: dict | None = None

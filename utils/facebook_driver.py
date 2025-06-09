@@ -1,6 +1,6 @@
 import logging
 import re
-
+from playwright.async_api import async_playwright
 import httpx
 import asyncio
 from datetime import datetime, timedelta
@@ -59,6 +59,16 @@ class FacebookAdsLibraryDriver:
         self.client = httpx.AsyncClient(timeout=30)
         self.app_id = app_id
         self.app_secret = app_secret
+
+        self.page = None
+        self.browser = None
+        self.playwright = None
+
+    async def init_playwright(self):
+        self.playwright = await async_playwright().start()
+        self.browser = await self.playwright.chromium.launch(headless=True)
+        context = await self.browser.new_context()
+        self.page = await context.new_page()
 
     async def exchange_token(self) -> str:
         url = "https://graph.facebook.com/v19.0/oauth/access_token"
@@ -134,10 +144,11 @@ class FacebookAdsLibraryDriver:
             self,
             search_term: str,
             placements: Optional[List[str]],
-            country: Optional[str],
-            ad_type: Optional[str],
+            country: str,
+            ad_type: str,
             period: str,
             limit: int,
+            page_id: str = None,
             after: Optional[str] = None
     ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
 
@@ -145,8 +156,8 @@ class FacebookAdsLibraryDriver:
             "access_token": self.access_token,
             "search_terms": search_term,
             "ad_reached_countries": country,
-            "ad_active_status": "ALL",
-            "media_type": ad_type if ad_type else "ALL",
+            "ad_active_status": "ACTIVE",
+            "media_type": ad_type.upper() if ad_type else "ALL",
             "fields": ",".join([
                 "ad_creative_bodies",
                 "ad_creative_link_titles",
@@ -156,11 +167,13 @@ class FacebookAdsLibraryDriver:
                 "ad_delivery_start_time",
                 "ad_delivery_stop_time",
                 "ad_creative_link_urls",
-                "id"
+                "page_id",
             ]),
             "limit": limit,
             "start_date": self._calculate_date_filter(period),
         }
+        if page_id:
+            params["search_page_ids"] = page_id
         if after:
             params["after"] = after
 
@@ -174,7 +187,7 @@ class FacebookAdsLibraryDriver:
             formatted_ads = []
             for ad in raw_ads:
                 # _format_ad will now perform content-based filtering including body length
-                formatted = self._format_ad(ad, placements)
+                formatted = await self._format_ad(ad, placements)
                 if formatted:
                     formatted_ads.append(formatted)
             return formatted_ads, next_cursor
@@ -240,7 +253,7 @@ class FacebookAdsLibraryDriver:
         logging.info("All generated search terms exhausted.")
         return [], None, -1  # Signal exhaustion
 
-    def _format_ad(self, ad: dict, placements: Optional[List[str]]) -> Optional[Dict[str, Any]]:
+    async def _format_ad(self, ad: dict, placements: Optional[List[str]] = None) -> Optional[Dict[str, Any]]:
         EXCLUDED_TITLE = "This content was removed because it didn't follow our Advertising Standards."
 
         if not ad.get("id"):
@@ -252,7 +265,7 @@ class FacebookAdsLibraryDriver:
 
         try:
             title = ad.get("ad_creative_link_titles", [""])[0] if ad.get("ad_creative_link_titles") else ""
-            if title == EXCLUDED_TITLE:
+            if EXCLUDED_TITLE in title:
                 logging.info(f"Excluding ad ID {ad.get('id')} due to removed content title.")
                 return None
 
@@ -282,13 +295,11 @@ class FacebookAdsLibraryDriver:
             description = ad.get("ad_creative_link_descriptions", [""])[0] if ad.get(
                 "ad_creative_link_descriptions") else ""
             body = ad.get("ad_creative_bodies", [""])[0] if ad.get("ad_creative_bodies") else ""
-
-            # --- NEW: Filter by body length ---
             if len(body) >= CONTENT_CHAR_LIMIT:
                 logging.info(
                     f"Excluding ad ID {ad.get('id')} due to body length ({len(body)} >= {CONTENT_CHAR_LIMIT}).")
                 return None
-            # --- END NEW ---
+            media_url = await self.extract_media_from_network(ad.get("ad_snapshot_url"))
 
             return {
                 "id": ad["id"],
@@ -299,7 +310,9 @@ class FacebookAdsLibraryDriver:
                 "url": ad.get("ad_snapshot_url"),
                 "days_running": days_running,
                 "raw_ad_data": ad,
-                "type": ad.get("ad_creative_media_type")
+                "type": ad.get("ad_creative_media_type"),
+                "page_id": ad.get("page_id"),
+                "media_url": media_url
             }
         except Exception as e:
             logging.exception(f"Unexpected error in _format_ad for ad ID {ad.get('id')}: {e}")
@@ -435,15 +448,69 @@ class FacebookAdsLibraryDriver:
 
         return emoji_pattern.sub(r'', text)
 
+    async def extract_media_from_network(self, fb_ad_url: str) -> str | None:
+        media_urls = []
+
+        async def handle_response(response):
+            url = response.url
+            if re.search(r'\.(mp4|jpg|jpeg|png)', url) and "fbcdn.net" in url:
+                media_urls.append(url)
+
+        def choose_best_media(sources: list[str]) -> str | None:
+            def is_valid_video(url):
+                return ".mp4" in url and "video" in url and "fbcdn.net" in url
+
+            def is_valid_image(url):
+                return re.search(r'\.(jpg|jpeg|png)',
+                                 url) and "fbcdn.net" in url and "s60x60" not in url and "static" not in url
+
+            def extract_size_score(url: str) -> int:
+                # s640x640 → площа 640*640 = 409600
+                match = re.search(r's(\d+)x(\d+)', url)
+                if match:
+                    return int(match.group(1)) * int(match.group(2))
+                return 0
+
+            # 🔍 Всі відео
+            video_urls = list(filter(is_valid_video, sources))
+            if video_urls:
+                # Пріоритет: відео з найбільшою довжиною URL (як проксі на розмір)
+                video_urls.sort(key=len, reverse=True)
+                best_video = video_urls[0]
+                return best_video
+
+            # 🖼 Всі зображення
+            image_urls = list(filter(is_valid_image, sources))
+            if image_urls:
+                # Пріоритет: зображення з найбільшою вказаною роздільною здатністю
+                image_urls.sort(key=extract_size_score, reverse=True)
+                best_image = image_urls[0]
+                return best_image
+            return None
+
+        self.page.on("response", handle_response)
+
+        await self.page.goto(fb_ad_url)
+        await self.page.wait_for_timeout(100)  # зачекати на завантаження ресурсів
+
+        # await browser.close()
+
+        if media_urls:
+            best_media = choose_best_media(media_urls)
+            return best_media
+        else:
+            return None
+
 
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BO0ZC7glot3JVN3JYAYJWmpBHp6AJs6fxzI3j1dRHzct6HcSAi5d6rbtLZCdQSuwjTP0XVLvgyhodxJONky70PgzEsGncpgujg97WLZCyQvYvZBF2zZC78OpZAb5AOmcEd9wIkzjlEZAMxd7JOaNzmbQKIOyof8ZCJWpZA7vp1IgMfU8GZBdOMvra1XWQHwG2LUZC5e2YBc2RZA1aKJeGQ5X3O42NwcKjiHAIAQZDZD",
+            access_token="EAAKCNpvlGQ8BO9j3TZBoonKXh1dQJIcAkL0r7SviITDCPptELW9uGjlvwhyqJ6iAecx5nSmSOirg8UytQdo8S2TjBZB5UDqKAcvwV680tpqNsJmL5ZAPJEp6Fu83HKGPAvlnbGcfZBvqSoQy1Bi98fWZCTWFUFsInCmMImAzxjjzigTPbDM4ap51yWSdRMHILACNR375olQ6H8p4XcpvMJW5drlFwN4ASbFgCPbWhvQZDZD",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"
         )
+        await driver.init_playwright()
 
         try:
             print("Starting paginated unique ad search...")
@@ -455,10 +522,10 @@ if __name__ == '__main__':
                 page_size=page_size,
                 niche="gambling",  # Now specifically gambling
                 placements=["facebook", "instagram"],
-                country=["GB"],  # Example country for gambling
+                country="GB",  # Example country for gambling
                 ad_type="all",
                 period="month",
-                keyword="casino",  # Broad keyword for gambling
+                # keyword="casino",  # Broad keyword for gambling
             )
 
             print(f"Collected {len(ads_page1)} ads for Page 1.")
@@ -470,6 +537,7 @@ if __name__ == '__main__':
                 print(f"  URL: {ad.get('url')}")
                 print(f"  Days Running: {ad.get('days_running')}")
                 print(f"  Type: {ad.get('')}")
+                print(f"  Media_url {ad.get('media_url')}")
                 print("-" * 20)
             print(f"Next search cursor for Page 1: {'exists' if search_cursor_page1 else 'None'}")
 
@@ -481,7 +549,7 @@ if __name__ == '__main__':
                     search_cursor=search_cursor_page1,  # Pass the cursor from the previous page
                     niche="gambling",  # Re-pass original search parameters
                     placements=["facebook", "instagram"],
-                    country=["GB"],
+                    country="GB",
                     ad_type="all",
                     period="month"
                 )

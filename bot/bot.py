@@ -534,6 +534,110 @@ async def delete_saved_pin(callback: types.CallbackQuery, state: FSMContext):
         await main_menu(callback.message)
 
 
+@tg_router.callback_query(F.data.startswith("get_similar:"))
+async def similar_search(callback: types.CallbackQuery, state: FSMContext):
+    page_name = callback.data.split(":")[1]
+    user_data = await state.get_data()
+    processing_message = await callback.message.answer_animation(animation=GIF_URL,
+                                                                 caption="Processing your request...")
+
+    telegram_id = callback.message.from_user.id if str(
+        callback.message.from_user.id) != SELF_ID else callback.message.chat.id
+
+    json = {
+        "telegram_id": str(telegram_id),
+        "country": user_data.get("country"),
+        "page_name": page_name,
+    }
+
+    await state.update_data(json)
+
+    await send_similar_creos(
+        json=json,
+        message=callback.message,
+        processing_message=processing_message,
+        state=state
+    )
+
+
+@tg_router.callback_query(F.data == "next_similar_search")
+async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
+    telegram_id = callback.message.from_user.id if str(
+        callback.message.from_user.id) != SELF_ID else callback.message.chat.id
+    processing_message = await callback.message.answer_animation(animation=GIF_URL,
+                                                                 caption="Processing your request...")
+    user_data = await state.get_data()
+    state_data = await state.get_data()
+    json = {
+        "telegram_id": str(telegram_id),
+        "country": user_data.get("country"),
+        "page_name": user_data.get("page_name"),
+        "search_cursor": state_data.get("search_cursor")
+    }
+    await send_similar_creos(json=json, message=callback.message, state=state, processing_message=processing_message)
+
+
+async def send_similar_creos(
+        json: dict,
+        message: types.Message,
+        state: FSMContext,
+        processing_message: types.Message
+):
+    response = requests.get(url=f"{API_URL}/creatives/similar", json=json)
+    if response.status_code == 402:
+        await message.answer("You have not enough credits to get creatives! \nTo continue - buy credits!")
+        await show_credits_menu(event=message, bot=bot)
+    elif response.status_code == 200:
+        data = response.json()
+
+        if not data.get("ads"):
+            await message.answer("No ads by your query", parse_mode='MarkdownV2')
+
+        ads = data.get("ads")
+        search_cursor = data.get("after")
+        await state.update_data({"search_cursor": search_cursor})
+        await bot.delete_message(
+            chat_id=processing_message.chat.id,
+            message_id=processing_message.message_id
+        )
+        for creative in ads:
+            url = creative.get('url')
+            media_url = creative.get('media_url')
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[[
+                    InlineKeyboardButton(text="🔗 Open Ad in Browser", url=url)]]
+            )
+
+            if media_url and "video" in media_url:
+                await bot.send_video(
+                    chat_id=message.chat.id,
+                    video=media_url,
+                    reply_markup=keyboard
+                )
+            elif media_url and any(ext in media_url for ext in [".jpg", ".jpeg", ".png"]):
+                await bot.send_photo(
+                    chat_id=message.chat.id,
+                    photo=media_url,
+                    reply_markup=keyboard
+                )
+            else:
+                # fallback якщо немає медіа, лише лінк
+                await bot.send_message(
+                    chat_id=message.chat.id,
+                    text=f"🔗 [Open media]({url})",
+                    parse_mode="Markdown",
+                    reply_markup=keyboard
+                )
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="Next", callback_data="next_similar_search")],
+                             [InlineKeyboardButton(text="Main menu", callback_data="main_menu")]]
+        )
+        await message.answer("Do you want to get next 10 creatives?", reply_markup=keyboard)
+    else:
+        await message.answer("Something went wrong!")
+        await main_menu(event=message)
+
+
 async def send_creos(
         json: dict,
         message: types.Message,
@@ -559,9 +663,13 @@ async def send_creos(
         )
         for creative in ads:
             url = creative.get('url')
-            media_url = await extract_media_from_network(url)
+            media_url = creative.get('media_url')
+            page_name = creative.get("page_name")
             keyboard = InlineKeyboardMarkup(
-                inline_keyboard=[[InlineKeyboardButton(text="🔗 Open Ad in Browser", url=url)]]
+                inline_keyboard=[[
+                    InlineKeyboardButton(text="🔗 Open Ad in Browser", url=url),
+                    InlineKeyboardButton(text="Get similar", callback_data=f"get_similar:{page_name}")
+                ]]
             )
 
             if media_url and "video" in media_url:

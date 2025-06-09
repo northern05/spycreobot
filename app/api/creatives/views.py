@@ -25,6 +25,21 @@ async def get_all_creatives(
     """
     return result
 
+@router.get(
+    "/similar",
+    status_code=status.HTTP_200_OK,
+    response_model=dict,
+)
+async def get_all_creatives(
+        result: dict = Depends(dependencies.get_similar_creatives)
+):
+    """
+    Endpoint to get creatives over user
+    :param session: session to connect to database
+    :return: list creatives
+    """
+    return result
+
 
 @router.get("/get-gif", response_class=FileResponse)
 async def get_gif():

@@ -9,9 +9,7 @@ RUN apt-get clean && apt-get autoremove
 
 # Install dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r bot_requirements.txt &&\
-    playwright install --with-deps chromium &&\
-    apt-get clean && apt-get autoremove
+    pip install --no-cache-dir -r bot_requirements.txt
 
 # Set environment variables (use a .env file in production)
 ENV TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN
