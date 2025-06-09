@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exception_handlers import http_exception_handler
 
 from app.core.models import db_helper, Base
+from app.core.modules_factory import fb_driver
 from app.api import router as router_v1
 from app.core.config import config
 
@@ -19,7 +20,7 @@ async def lifespan(app: FastAPI):
     # scheduler.start()
     async with db_helper.engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-
+    await fb_driver.init_playwright()
     yield
     print("End lifespan")
 

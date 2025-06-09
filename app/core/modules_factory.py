@@ -19,7 +19,5 @@ fb_driver = FacebookAdsLibraryDriver(
     api_url=fb_config.API_URL
 )
 
-await fb_driver.init_playwright()
-
 # ----------- Initialize Wallet Driver ----------------------
 wallet_driver = TronWalletDriver(base_url=crypto_config.TRON_API_URL, usdt_address=crypto_config.USDT_CONTRACT)
