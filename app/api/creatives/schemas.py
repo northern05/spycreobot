@@ -28,11 +28,3 @@ class CreativeRequest(BaseModel):
     page_id: str | None = None
     keyword: str | None = None
     search_cursor: dict | None = None
-
-
-class SimilarCreativeRequest(BaseModel):
-    telegram_id: str
-    country: str
-    page_id: str
-    niche: str
-    search_cursor: dict | None = None

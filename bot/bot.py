@@ -548,7 +548,8 @@ async def similar_search(callback: types.CallbackQuery, state: FSMContext):
         "telegram_id": str(telegram_id),
         "country": user_data.get("country"),
         "page_id": str(page_id),
-        "niche": user_data.get("niche")
+        "niche": user_data.get("niche"),
+        "search_cursor": user_data.get("search_cursor")
     }
 
     await state.update_data(json)

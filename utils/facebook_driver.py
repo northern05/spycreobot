@@ -11,12 +11,15 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 CONTENT_CHAR_LIMIT = 3000
 
+COMMERCIAL_CTA_TYPES = {"SHOP_NOW", "LEARN_MORE", "SIGN_UP", "DOWNLOAD", "INSTALL_NOW",
+                        "PLAY_GAME", "APPLY_NOW", "SUBSCRIBE", "BUY_NOW", "GET_QUOTE", "REQUEST_TIME"}
+
 NICHE_KEYWORDS_COMBINATIONS = {
     "gambling": [
-        ["online", "bonus", "slot", "withdraw"],
-        ["free", "spin", "download", "fbp"],
-        ["casino", "jackpot", "win", "game"],
-        ["lucky", "welcome", "deposit"]
+        ["online", "bonus", "slot", "withdraw", "play now"],
+        ["free", "spin", "download", "fbp", "register"],
+        ["casino", "jackpot", "win", "game", "claim bonus"],
+        ["lucky", "welcome", "deposit", "get started"]
     ],
     "crypto": [
         ["crypto", "nft"],
@@ -168,6 +171,8 @@ class FacebookAdsLibraryDriver:
                 "ad_delivery_stop_time",
                 "ad_creative_link_urls",
                 "page_id",
+                "ad_creative_media_type",
+                "call_to_action_type"
             ]),
             "limit": limit,
             "start_date": self._calculate_date_filter(period),
@@ -203,8 +208,8 @@ class FacebookAdsLibraryDriver:
             ad_type: Optional[str],
             period: str,
             api_call_limit: int,
-            start_combination_index: int,  # This will be the index into the generated_terms list
-            start_cursor: Optional[str],  # This is the cursor for the specific search_term
+            start_combination_index: int,
+            start_cursor: Optional[str],
             page_id: Optional[str] = None,
             keyword: Optional[str] = None
     ) -> Tuple[List[Dict[str, Any]], Optional[str], int]:
@@ -301,7 +306,19 @@ class FacebookAdsLibraryDriver:
                 logging.info(
                     f"Excluding ad ID {ad.get('id')} due to body length ({len(body)} >= {CONTENT_CHAR_LIMIT}).")
                 return None
-            media_url = await self.extract_media_from_network(ad.get("ad_snapshot_url"))
+
+            link_urls = ad.get("ad_creative_link_urls", [])
+            has_external_url = any(
+                url and "facebook.com" not in url and "instagram.com" not in url for url in link_urls)
+
+            # Перевірка типу заклику до дії (CTA)
+            cta_type = ad.get("call_to_action_type", "").upper()  # Приводимо до верхнього регістру для порівняння
+            is_commercial_cta = cta_type in COMMERCIAL_CTA_TYPES
+
+            # Якщо немає зовнішнього URL І немає комерційного CTA, то це "social-style"
+            if not has_external_url and not is_commercial_cta:
+                logging.info(f"Excluding ad ID {ad['id']} as non-commercial (no external URL and no commercial CTA).")
+                return None
 
             return {
                 "id": ad["id"],
@@ -314,7 +331,7 @@ class FacebookAdsLibraryDriver:
                 "raw_ad_data": ad,
                 "type": ad.get("ad_creative_media_type"),
                 "page_id": ad.get("page_id"),
-                "media_url": media_url
+                "media_url": await self.extract_media_from_network(ad.get("ad_snapshot_url"))
             }
         except Exception as e:
             logging.exception(f"Unexpected error in _format_ad for ad ID {ad.get('id')}: {e}")

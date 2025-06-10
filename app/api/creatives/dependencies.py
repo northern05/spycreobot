@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.credits import dependencies as credits_dp
 from app.core.models import db_helper
-from .schemas import CreativeResponse, CreativeRequest, SimilarCreativeRequest
+from .schemas import CreativeResponse, CreativeRequest
 from app.core.modules_factory import fb_driver
 
 
