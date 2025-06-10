@@ -21,10 +21,11 @@ class CreativeResponse(CreativeBase):
 class CreativeRequest(BaseModel):
     telegram_id: str
     niche: str
-    placements: list
+    placements: list | None = None
     country: str
-    ad_type: str
-    period: str
+    ad_type: str | None = None
+    period: str | None = None
+    page_id: str | None = None
     keyword: str | None = None
     search_cursor: dict | None = None
 

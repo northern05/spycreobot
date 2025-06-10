@@ -146,8 +146,8 @@ class FacebookAdsLibraryDriver:
             placements: Optional[List[str]],
             country: str,
             ad_type: str,
-            period: str,
-            limit: int,
+            period: str = "month",
+            limit: int = 25,
             page_id: str = None,
             after: Optional[str] = None
     ) -> Tuple[List[Dict[str, Any]], Optional[str]]:

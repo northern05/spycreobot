@@ -536,7 +536,7 @@ async def delete_saved_pin(callback: types.CallbackQuery, state: FSMContext):
 
 @tg_router.callback_query(F.data.startswith("get_similar:"))
 async def similar_search(callback: types.CallbackQuery, state: FSMContext):
-    page_name = callback.data.split(":")[1]
+    page_id = callback.data.split(":")[1]
     user_data = await state.get_data()
     processing_message = await callback.message.answer_animation(animation=GIF_URL,
                                                                  caption="Processing your request...")
@@ -547,7 +547,8 @@ async def similar_search(callback: types.CallbackQuery, state: FSMContext):
     json = {
         "telegram_id": str(telegram_id),
         "country": user_data.get("country"),
-        "page_name": page_name,
+        "page_id": str(page_id),
+        "niche": user_data.get("niche")
     }
 
     await state.update_data(json)
@@ -571,8 +572,9 @@ async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
     json = {
         "telegram_id": str(telegram_id),
         "country": user_data.get("country"),
-        "page_name": user_data.get("page_name"),
-        "search_cursor": state_data.get("search_cursor")
+        "page_id": str(user_data.get("page_id")),
+        "search_cursor": state_data.get("search_cursor"),
+        "niche": user_data.get("niche")
     }
     await send_similar_creos(json=json, message=callback.message, state=state, processing_message=processing_message)
 
@@ -583,7 +585,7 @@ async def send_similar_creos(
         state: FSMContext,
         processing_message: types.Message
 ):
-    response = requests.get(url=f"{API_URL}/creatives/similar", json=json)
+    response = requests.get(url=f"{API_URL}/creatives", json=json)
     if response.status_code == 402:
         await message.answer("You have not enough credits to get creatives! \nTo continue - buy credits!")
         await show_credits_menu(event=message, bot=bot)
@@ -603,6 +605,7 @@ async def send_similar_creos(
         for creative in ads:
             url = creative.get('url')
             media_url = creative.get('media_url')
+            days_running = creative.get("days_running")
             keyboard = InlineKeyboardMarkup(
                 inline_keyboard=[[
                     InlineKeyboardButton(text="🔗 Open Ad in Browser", url=url)]]
@@ -612,19 +615,21 @@ async def send_similar_creos(
                 await bot.send_video(
                     chat_id=message.chat.id,
                     video=media_url,
-                    reply_markup=keyboard
+                    reply_markup=keyboard,
+                    caption=f"Days running: {days_running}"
                 )
             elif media_url and any(ext in media_url for ext in [".jpg", ".jpeg", ".png"]):
                 await bot.send_photo(
                     chat_id=message.chat.id,
                     photo=media_url,
-                    reply_markup=keyboard
+                    reply_markup=keyboard,
+                    caption=f"Days running: {days_running}"
                 )
             else:
                 # fallback якщо немає медіа, лише лінк
                 await bot.send_message(
                     chat_id=message.chat.id,
-                    text=f"🔗 [Open media]({url})",
+                    text=f"🔗 [Open media]({url})\n \nDays running: {days_running}",
                     parse_mode="Markdown",
                     reply_markup=keyboard
                 )
@@ -664,11 +669,12 @@ async def send_creos(
         for creative in ads:
             url = creative.get('url')
             media_url = creative.get('media_url')
-            page_name = creative.get("page_name")
+            page_id = creative.get("page_id")
+            days_running = creative.get("days_running")
             keyboard = InlineKeyboardMarkup(
                 inline_keyboard=[[
                     InlineKeyboardButton(text="🔗 Open Ad in Browser", url=url),
-                    InlineKeyboardButton(text="Get similar", callback_data=f"get_similar:{page_name}")
+                    InlineKeyboardButton(text="Get similar", callback_data=f"get_similar:{page_id}")
                 ]]
             )
 
@@ -676,19 +682,21 @@ async def send_creos(
                 await bot.send_video(
                     chat_id=message.chat.id,
                     video=media_url,
-                    reply_markup=keyboard
+                    reply_markup=keyboard,
+                    caption=f"Days running: {days_running}"
                 )
             elif media_url and any(ext in media_url for ext in [".jpg", ".jpeg", ".png"]):
                 await bot.send_photo(
                     chat_id=message.chat.id,
                     photo=media_url,
-                    reply_markup=keyboard
+                    reply_markup=keyboard,
+                    caption=f"Days running: {days_running}"
                 )
             else:
                 # fallback якщо немає медіа, лише лінк
                 await bot.send_message(
                     chat_id=message.chat.id,
-                    text=f"🔗 [Open media]({url})",
+                    text=f"🔗 [Open media]({url})\n \nDays running: {days_running}",
                     parse_mode="Markdown",
                     reply_markup=keyboard
                 )
