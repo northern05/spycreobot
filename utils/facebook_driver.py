@@ -205,6 +205,7 @@ class FacebookAdsLibraryDriver:
             api_call_limit: int,
             start_combination_index: int,  # This will be the index into the generated_terms list
             start_cursor: Optional[str],  # This is the cursor for the specific search_term
+            page_id: Optional[str] = None,
             keyword: Optional[str] = None
     ) -> Tuple[List[Dict[str, Any]], Optional[str], int]:
         """
@@ -238,7 +239,8 @@ class FacebookAdsLibraryDriver:
                 ad_type=ad_type,
                 period=period,
                 limit=api_call_limit,
-                after=current_cursor
+                after=current_cursor,
+                page_id=page_id
             )
 
             if ads_for_term:
