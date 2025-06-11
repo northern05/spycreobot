@@ -96,48 +96,55 @@ COUNTRY_TO_LANG_CODE = {
 }
 NICHE_KEYWORDS_COMBINATIONS = {
     "gambling": [
+        # 🔥 Агресивні, high-CTR, банерні/CPA формати
+        ["no", "deposit", "bonus"],
         ["download", "bonus", "play"],
-        ["free", "spins", "casino"],
-        ["jackpot", "win", "game"],
-        ["withdraw", "deposit", "claim"],
-        ["slot", "register", "lucky"],
-
         ["real", "money", "casino"],
         ["cashout", "fast", "payout"],
-        ["mobile", "slots", "777"],
-        ["no", "verification", "bonus"],
         ["instant", "withdrawal", "spins"],
-
-        ["bet", "win", "now"],
-        ["big", "prize", "today"],
-        ["exclusive", "offer", "limited"],
+        ["no", "verification", "bonus"],
         ["new", "account", "bonus"],
         ["100%", "match", "bonus"],
+        ["crypto", "casino", "btc"],
 
+        # 🎰 Ігрові CTA, які часто з’являються в банерах/лендінгах
+        ["free", "spins", "casino"],
+        ["jackpot", "win", "game"],
+        ["slot", "register", "lucky"],
         ["play", "casino", "live"],
-        ["games", "bet", "money"],
-        ["promo", "spin", "free"],
-        ["welcome", "jackpot", "claim"],
+        ["tournament", "bonus", "code"],
+        ["download", "register", "win"],
+
+        # 📱 Мобільні додатки, Android traffic
+        ["mobile", "casino", "app"],
+        ["app", "mobile", "android"],
+        ["mobile", "slots", "777"],
+
+        # 💸 Виплати, кешбек, фінансові теми
+        ["payout", "withdraw", "cashout"],
+        ["withdraw", "deposit", "claim"],
+        ["fast", "real", "money"],
         ["offer", "deposit", "cash"],
 
-        ["download", "register", "win"],
-        ["blackjack", "poker", "game"],
-        ["roulette", "baccarat", "card"],
-        ["app", "mobile", "android"],
-
-        ["payout", "withdraw", "cashout"],
-        ["fast", "real", "money"],
-        ["lucky", "exclusive", "big"],
-        ["unlimited", "chance", "today"],
+        # 💡 Промо-терміни, бонуси
         ["bonus", "win", "now"],
+        ["promo", "spin", "free"],
+        ["welcome", "jackpot", "claim"],
+        ["exclusive", "offer", "limited"],
+        ["big", "prize", "today"],
+        ["unlimited", "chance", "today"],
 
-        ["tournament", "bonus", "code"],
+        # 🧠 Менш агресивні — більше схожі на соціальний формат
         ["online", "bonus", "slot"],
-        ["mobile", "casino", "app"],
+        ["bet", "win", "now"],
+        ["games", "bet", "money"],
+        ["lucky", "exclusive", "big"],
         ["betting", "online", "site"],
         ["new", "player", "bonus"],
-        ["no", "deposit", "bonus"],
-        ["crypto", "casino", "btc"],
+
+        # 🎲 Класичні азартні ігри (менш рекламні, більше контентні)
+        ["blackjack", "poker", "game"],
+        ["roulette", "baccarat", "card"],
         ["slots", "machines", "online"]
     ],
     "crypto": [
