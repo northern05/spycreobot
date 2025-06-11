@@ -2,7 +2,7 @@ from types import SimpleNamespace
 from datetime import datetime
 from aiogram.client.default import DefaultBotProperties
 from aiogram.types import Message, InlineKeyboardButton
-from aiogram import Router, F, types, Bot, Dispatcher
+from aiogram import Router, F, types, Bot, Dispatcher, exceptions
 from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
 from bot_utils import *
@@ -678,23 +678,30 @@ async def send_creos(
                     InlineKeyboardButton(text="Get similar", callback_data=f"get_similar:{page_id}")
                 ]]
             )
-
-            if media_url and "video" in media_url:
-                await bot.send_video(
-                    chat_id=message.chat.id,
-                    video=media_url,
-                    reply_markup=keyboard,
-                    caption=f"Days running: {days_running}"
-                )
-            elif media_url and any(ext in media_url for ext in [".jpg", ".jpeg", ".png"]):
-                await bot.send_photo(
-                    chat_id=message.chat.id,
-                    photo=media_url,
-                    reply_markup=keyboard,
-                    caption=f"Days running: {days_running}"
-                )
-            else:
-                # fallback якщо немає медіа, лише лінк
+            try:
+                if media_url and "video" in media_url:
+                    await bot.send_video(
+                        chat_id=message.chat.id,
+                        video=media_url,
+                        reply_markup=keyboard,
+                        caption=f"Days running: {days_running}"
+                    )
+                elif media_url and any(ext in media_url for ext in [".jpg", ".jpeg", ".png"]):
+                    await bot.send_photo(
+                        chat_id=message.chat.id,
+                        photo=media_url,
+                        reply_markup=keyboard,
+                        caption=f"Days running: {days_running}"
+                    )
+                else:
+                    # fallback якщо немає медіа, лише лінк
+                    await bot.send_message(
+                        chat_id=message.chat.id,
+                        text=f"🔗 [Open media]({url})\n \nDays running: {days_running}",
+                        parse_mode="Markdown",
+                        reply_markup=keyboard
+                    )
+            except exceptions.TelegramBadRequest as e:
                 await bot.send_message(
                     chat_id=message.chat.id,
                     text=f"🔗 [Open media]({url})\n \nDays running: {days_running}",

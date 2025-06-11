@@ -96,10 +96,11 @@ COUNTRY_TO_LANG_CODE = {
 }
 NICHE_KEYWORDS_COMBINATIONS = {
     "gambling": [
-        ["download", "bonus", "slot", "play"],
-        ["free", "spin", "online", "register"],
-        ["jackpot", "win", "game", "claim"],
-        ["lucky", "welcome", "deposit", "start"]
+        ["download", "bonus", "play"],
+        ["free", "spin", "online"],
+        ["jackpot", "win", "game"],
+        ["withdraw", "deposit", "claim"],
+        ["slot", "register", "lucky"]
     ],
     "crypto": [
         ["crypto", "nft"],
