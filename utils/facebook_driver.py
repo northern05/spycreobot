@@ -97,10 +97,48 @@ COUNTRY_TO_LANG_CODE = {
 NICHE_KEYWORDS_COMBINATIONS = {
     "gambling": [
         ["download", "bonus", "play"],
-        ["free", "spin", "online"],
+        ["free", "spins", "casino"],
         ["jackpot", "win", "game"],
         ["withdraw", "deposit", "claim"],
-        ["slot", "register", "lucky"]
+        ["slot", "register", "lucky"],
+
+        ["real", "money", "casino"],
+        ["cashout", "fast", "payout"],
+        ["mobile", "slots", "777"],
+        ["no", "verification", "bonus"],
+        ["instant", "withdrawal", "spins"],
+
+        ["bet", "win", "now"],
+        ["big", "prize", "today"],
+        ["exclusive", "offer", "limited"],
+        ["new", "account", "bonus"],
+        ["100%", "match", "bonus"],
+
+        ["play", "casino", "live"],
+        ["games", "bet", "money"],
+        ["promo", "spin", "free"],
+        ["welcome", "jackpot", "claim"],
+        ["offer", "deposit", "cash"],
+
+        ["download", "register", "win"],
+        ["blackjack", "poker", "game"],
+        ["roulette", "baccarat", "card"],
+        ["app", "mobile", "android"],
+
+        ["payout", "withdraw", "cashout"],
+        ["fast", "real", "money"],
+        ["lucky", "exclusive", "big"],
+        ["unlimited", "chance", "today"],
+        ["bonus", "win", "now"],
+
+        ["tournament", "bonus", "code"],
+        ["online", "bonus", "slot"],
+        ["mobile", "casino", "app"],
+        ["betting", "online", "site"],
+        ["new", "player", "bonus"],
+        ["no", "deposit", "bonus"],
+        ["crypto", "casino", "btc"],
+        ["slots", "machines", "online"]
     ],
     "crypto": [
         ["crypto", "nft"],
