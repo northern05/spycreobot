@@ -1,16 +1,11 @@
-FROM python:3.11
-
-RUN apt-get update && apt-get upgrade -y && apt-get clean && apt-get autoremove
-RUN pip install --upgrade pip
+FROM python:3.11-slim
 
 WORKDIR /usr/src/app
 
-COPY requirements.txt requirements.txt
-
-RUN pip install --no-cache-dir --force-reinstall -r requirements.txt &&\
+RUN apt-get update && apt-get upgrade -y && \
     playwright install --with-deps chromium &&\
     apt-get clean && apt-get autoremove
 
 COPY . /usr/src/app/
 
-WORKDIR /usr/src/app
+RUN pip install --no-cache-dir --force-reinstall -r requirements.txt

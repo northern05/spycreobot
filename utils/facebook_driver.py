@@ -6,20 +6,100 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import List, Optional, Tuple, Dict, Any
 import hashlib
+from googletrans import Translator
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 CONTENT_CHAR_LIMIT = 3000
 
-COMMERCIAL_CTA_TYPES = {"SHOP_NOW", "LEARN_MORE", "SIGN_UP", "DOWNLOAD", "INSTALL_NOW",
-                        "PLAY_GAME", "APPLY_NOW", "SUBSCRIBE", "BUY_NOW", "GET_QUOTE", "REQUEST_TIME"}
+COMMERCIAL_KEYWORDS = {
+    "download", "install", "app", "play", "register", "start", "learn more"
+}
 
+COUNTRY_TO_LANG_CODE = {
+    # Англомовні країни
+    # "US": "en",  # United States
+    # "GB": "en",  # United Kingdom
+    # "CA": "en",  # Canada (основна англійська, але також є fr)
+    # "AU": "en",  # Australia
+    # "IE": "en",  # Ireland
+    # "NZ": "en",  # New Zealand
+    # "ZA": "en",  # South Africa (основна англійська, але багато інших офіційних)
+    # "SG": "en",  # Singapore (основна англійська, але також zh, ms, ta)
+
+    # Європа
+    "UA": "uk",  # Ukraine
+    "DE": "de",  # Germany
+    "FR": "fr",  # France
+    "ES": "es",  # Spain
+    "IT": "it",  # Italy
+    "PT": "pt",  # Portugal
+    "NL": "nl",  # Netherlands
+    "BE": "nl",  # Belgium (nl, fr, de) - обрано nl як основну
+    "CH": "de",  # Switzerland (de, fr, it) - обрано de як основну
+    "AT": "de",  # Austria
+    "PL": "pl",  # Poland
+    "CZ": "cs",  # Czech Republic
+    "SK": "sk",  # Slovakia
+    "HU": "hu",  # Hungary
+    "RO": "ro",  # Romania
+    "GR": "el",  # Greece
+    "SE": "sv",  # Sweden
+    "NO": "no",  # Norway
+    "DK": "da",  # Denmark
+    "FI": "fi",  # Finland
+    "IS": "is",  # Iceland
+    "TR": "tr",  # Turkey
+    "BG": "bg",  # Bulgaria
+    "HR": "hr",  # Croatia
+    "RS": "sr",  # Serbia
+    "SI": "sl",  # Slovenia
+    "BA": "bs",  # Bosnia and Herzegovina (bs, sr, hr) - обрано bs
+    "AL": "sq",  # Albania
+    "MK": "mk",  # North Macedonia
+    "LT": "lt",  # Lithuania
+    "LV": "lv",  # Latvia
+    "EE": "et",  # Estonia
+
+    # Азія
+    "CN": "zh",  # China
+    "JP": "ja",  # Japan
+    "KR": "ko",  # South Korea
+    "IN": "hi",  # India (основна хінді, але також en, багато регіональних)
+    "ID": "id",  # Indonesia
+    "PH": "en",  # Philippines (en, tl) - обрано en
+    "TH": "th",  # Thailand
+    "VN": "vi",  # Vietnam
+    "MY": "ms",  # Malaysia (основна малайська, але також en, zh, ta)
+    "PK": "ur",  # Pakistan (основна урду, але також en, багато регіональних)
+    "BD": "bn",  # Bangladesh
+    "IR": "fa",  # Iran
+    "IQ": "ar",  # Iraq (ar, ku) - обрано ar
+    "SA": "ar",  # Saudi Arabia
+    "AE": "ar",  # United Arab Emirates (основна арабська, але en широко поширена)
+    "IL": "he",  # Israel (he, ar) - обрано he
+
+    # Південна Америка
+    "BR": "pt",  # Brazil
+    "MX": "es",  # Mexico
+    "AR": "es",  # Argentina
+    "CO": "es",  # Colombia
+    "CL": "es",  # Chile
+    "PE": "es",  # Peru
+    "VE": "es",  # Venezuela
+
+    # Африка
+    "EG": "ar",  # Egypt
+    "NG": "en",  # Nigeria (основна англійська, але багато регіональних)
+    "DZ": "ar",  # Algeria (ar, fr) - обрано ar
+    "MA": "ar",  # Morocco (ar, fr) - обрано ar
+}
 NICHE_KEYWORDS_COMBINATIONS = {
     "gambling": [
-        ["online", "bonus", "slot", "withdraw", "play now"],
-        ["free", "spin", "download", "fbp", "register"],
-        ["casino", "jackpot", "win", "game", "claim bonus"],
-        ["lucky", "welcome", "deposit", "get started"]
+        ["download", "bonus", "slot", "play"],
+        ["free", "spin", "online", "register"],
+        ["jackpot", "win", "game", "claim"],
+        ["lucky", "welcome", "deposit", "start"]
     ],
     "crypto": [
         ["crypto", "nft"],
@@ -66,6 +146,8 @@ class FacebookAdsLibraryDriver:
         self.page = None
         self.browser = None
         self.playwright = None
+
+        self.translator = Translator()
 
     async def init_playwright(self):
         self.playwright = await async_playwright().start()
@@ -150,7 +232,7 @@ class FacebookAdsLibraryDriver:
             country: str,
             ad_type: str,
             period: str = "month",
-            limit: int = 25,
+            limit: int = 100,
             page_id: str = None,
             after: Optional[str] = None
     ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
@@ -171,8 +253,7 @@ class FacebookAdsLibraryDriver:
                 "ad_delivery_stop_time",
                 "ad_creative_link_urls",
                 "page_id",
-                "ad_creative_media_type",
-                "call_to_action_type"
+                "ad_creative_media_type"
             ]),
             "limit": limit,
             "start_date": self._calculate_date_filter(period),
@@ -192,7 +273,7 @@ class FacebookAdsLibraryDriver:
             formatted_ads = []
             for ad in raw_ads:
                 # _format_ad will now perform content-based filtering including body length
-                formatted = await self._format_ad(ad, placements)
+                formatted = await self._format_ad(ad=ad, placements=placements, country=country)
                 if formatted:
                     formatted_ads.append(formatted)
             return formatted_ads, next_cursor
@@ -260,16 +341,22 @@ class FacebookAdsLibraryDriver:
         logging.info("All generated search terms exhausted.")
         return [], None, -1  # Signal exhaustion
 
-    async def _format_ad(self, ad: dict, placements: Optional[List[str]] = None) -> Optional[Dict[str, Any]]:
+    async def _format_ad(
+            self,
+            ad: dict,
+            placements: Optional[List[str]] = None,
+            country: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
         EXCLUDED_TITLE = "This content was removed because it didn't follow our Advertising Standards."
+        ad_id = ad.get("id")
 
         if not ad.get("id"):
             logging.warning("Ad ID is missing, skipping ad.")
             return None
-        if not ad.get("ad_snapshot_url"):
-            logging.warning(f"Ad snapshot URL is missing for ad ID {ad.get('id')}, skipping ad.")
+        snapshot_url = ad.get("ad_snapshot_url")
+        if not snapshot_url:
+            logging.warning(f"Ad snapshot URL is missing for ad ID {ad_id}, skipping ad.")
             return None
-
         try:
             title = ad.get("ad_creative_link_titles", [""])[0] if ad.get("ad_creative_link_titles") else ""
             if EXCLUDED_TITLE in title:
@@ -307,21 +394,34 @@ class FacebookAdsLibraryDriver:
                     f"Excluding ad ID {ad.get('id')} due to body length ({len(body)} >= {CONTENT_CHAR_LIMIT}).")
                 return None
 
-            link_urls = ad.get("ad_creative_link_urls", [])
-            has_external_url = any(
-                url and "facebook.com" not in url and "instagram.com" not in url for url in link_urls)
+            full_text_content = (title + " " + description + " " + body).lower()
+            if country and country in COUNTRY_TO_LANG_CODE:
+                target_lang = COUNTRY_TO_LANG_CODE[country]
+                translated_commercial_keywords = set()
 
-            # Перевірка типу заклику до дії (CTA)
-            cta_type = ad.get("call_to_action_type", "").upper()  # Приводимо до верхнього регістру для порівняння
-            is_commercial_cta = cta_type in COMMERCIAL_CTA_TYPES
+                for base_word in COMMERCIAL_KEYWORDS:
+                    try:
+                        translated_word_obj = await self.translator.translate(base_word, dest=target_lang)
+                        if translated_word_obj and translated_word_obj.text:
+                            translated_commercial_keywords.add(translated_word_obj.text.lower())
+                        else:
+                            logging.warning(f"Could not translate '{base_word}' to {target_lang}.")
+                    except Exception as translate_e:
+                        logging.error(f"Translation error for '{base_word}' to {target_lang}: {translate_e}")
+                        translated_commercial_keywords.add(base_word.lower())
+                is_commercial = any(word in full_text_content for word in translated_commercial_keywords)
+                logging.info(
+                    f"Ad ID {ad_id}: Translated keywords for '{country}' ({target_lang}): {translated_commercial_keywords}. Is commercial: {is_commercial}")
 
-            # Якщо немає зовнішнього URL І немає комерційного CTA, то це "social-style"
-            if not has_external_url and not is_commercial_cta:
-                logging.info(f"Excluding ad ID {ad['id']} as non-commercial (no external URL and no commercial CTA).")
+            else:
+                is_commercial = any(word in full_text_content for word in COMMERCIAL_KEYWORDS)
+                logging.info(f"Ad ID {ad_id}: Using default English keywords. Is commercial: {is_commercial}")
+
+            if not is_commercial:
+                logging.info(f"Excluding ad ID {ad_id} as non-commercial (no relevant translated keywords detected).")
                 return None
-
             return {
-                "id": ad["id"],
+                "id": ad_id,
                 "title": title,
                 "description": description,
                 "body": self.remove_emojis_regex(body),
@@ -331,7 +431,7 @@ class FacebookAdsLibraryDriver:
                 "raw_ad_data": ad,
                 "type": ad.get("ad_creative_media_type"),
                 "page_id": ad.get("page_id"),
-                "media_url": await self.extract_media_from_network(ad.get("ad_snapshot_url"))
+                "media_url": await self.extract_media_from_network(fb_ad_url=snapshot_url)
             }
         except Exception as e:
             logging.exception(f"Unexpected error in _format_ad for ad ID {ad.get('id')}: {e}")
@@ -381,8 +481,7 @@ class FacebookAdsLibraryDriver:
             seen_content_hashes = set()
             logging.info("Starting new unique ad search from scratch.")
 
-        # We will fetch 'limit' ads per internal API call until we hit 'page_size' unique ads.
-        api_fetch_limit = max(page_size, 25)  # Fetch at least 25 per API call, or page_size if larger
+        api_fetch_limit = max(page_size, 100)
 
         # Initialize ads_chunk and next_combination_index before the loop/try block
         ads_chunk = []
@@ -524,7 +623,7 @@ class FacebookAdsLibraryDriver:
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BO9j3TZBoonKXh1dQJIcAkL0r7SviITDCPptELW9uGjlvwhyqJ6iAecx5nSmSOirg8UytQdo8S2TjBZB5UDqKAcvwV680tpqNsJmL5ZAPJEp6Fu83HKGPAvlnbGcfZBvqSoQy1Bi98fWZCTWFUFsInCmMImAzxjjzigTPbDM4ap51yWSdRMHILACNR375olQ6H8p4XcpvMJW5drlFwN4ASbFgCPbWhvQZDZD",
+            access_token="EAAKCNpvlGQ8BO4M3zyPU6jZCNjobAT27u3ixq0wTaurSYW4Fts82eAsQbWpt9FGi7dtM57IEv1o9A0ClBv6ewdAeZAJRifZAuIwBeGrxy4qBllnFb7TyWJzXvpgpBWPsKjduZCn2joH9aOgviUtZA3ZCbCQ3KAZCA0nZAjpOomNg31VIKC3neSjyqV1gI9Cn4SDwoDECtAxCE8gyVh90oN8ZB8t3JGhZBrLkoBKJZC57pldnAZDZD",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"
