@@ -250,56 +250,30 @@ async def ask_niche_creatives(event: types.Message | types.CallbackQuery, bot: B
 
 
 @tg_router.callback_query(CreativesState.choose_niche, F.data.startswith("niche:"))
-async def handle_niche_selection(callback: types.CallbackQuery, state: FSMContext):
-    user_id = callback.from_user.id
-    niche = callback.data.split(":")[1]
-    await state.set_data({"niche": niche})
-    await state.set_state(CreativesState.choose_placement)
-
-    placements = ["Facebook", "Instagram", "Messenger", "Audience_network"]
-    buttons = [InlineKeyboardButton(text=p, callback_data=f"placement:{p.lower()}") for p in placements]
-    rows = [[buttons[i], buttons[i + 1]] for i in range(0, len(buttons), 2)]
-    rows.append([InlineKeyboardButton(text="✅ Submit", callback_data="placement_submit")])
-
-    user_selection_state[user_id] = {
-        "niche": niche,
-        "placements": []
-    }
-
-    await callback.message.answer(f"Niche selected: {niche.capitalize()}\nNow choose placements:",
-                                  reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
-    await delete_previous_message(bot, callback.message.chat.id, callback.message.message_id)
-    await callback.answer()
-
-
-@tg_router.callback_query(CreativesState.choose_placement)
-async def toggle_placement(callback: types.CallbackQuery, state: FSMContext):
-    if callback.data.startswith("placement_submit"):
-        await submit_placements(callback, state)
-        return
-    user_id = callback.from_user.id
-    placement = callback.data.split(":")[1]
-    selected = user_selection_state[user_id].get("placements", [])
-    if placement in selected:
-        selected.remove(placement)
-    else:
-        selected.append(placement)
-    user_selection_state[user_id]["placements"] = selected
-    await callback.answer(f"Selected placements: {', '.join(selected)}")
-
-
-@tg_router.callback_query(F.data == "placement_submit")
 async def submit_placements(callback: types.CallbackQuery, state: FSMContext):
-    selected = user_selection_state.get(callback.from_user.id, {}).get("placements", [])
-    await state.update_data({"placements": selected})
+    niche = callback.data.split(":")[1]
+    await state.update_data({"niche": niche})
+    await state.update_data({"placements": ["instagram", "facebook"]})
     await delete_previous_message(bot, callback.message.chat.id, callback.message.message_id)
-    geo_msg = await callback.message.answer("🌍 Enter geo code:")
-    await state.update_data({"last_msg_id": geo_msg.message_id})
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔽 Skip geo", callback_data="skip_geo")]
+    ])
+
+    geo_msg = await callback.message.answer(
+        f"🌍 Please enter geo code (e.g. `US`, `PH`, `DE`) or press *Skip*:",
+        reply_markup=keyboard,
+        parse_mode="Markdown"
+    )
     await state.set_state(CreativesState.choose_country)
+    await state.update_data({"last_msg_id": geo_msg.message_id})
 
 
 @tg_router.message(CreativesState.choose_country)
-async def submit_country(message: types.Message, state: FSMContext):
+async def handle_geo_input(message: types.Message, state: FSMContext):
+    country = message.text.strip().upper()  # ISO2 в upper-case
+    await delete_previous_message(bot, message.chat.id, message.message_id)
+
     data = await state.get_data()
     last_msg_id = data.get("last_msg_id")
     if last_msg_id:
@@ -307,18 +281,28 @@ async def submit_country(message: types.Message, state: FSMContext):
             await bot.delete_message(chat_id=message.chat.id, message_id=last_msg_id)
         except Exception:
             pass
-    await delete_previous_message(bot, message.chat.id, message.message_id)
-    text = message.text.strip().upper()
-    if len(text) < 2 or len(text) > 4:
-        await message.answer("❌ Wrong geo code format. Please enter valid country code (e.g. US,CA,UA).")
-        return
-    await state.update_data({"country": text})
+
+    await state.update_data({"country": country})
     await state.set_state(CreativesState.choose_type)
+
     types_ = ["image", "video", "all"]
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[[InlineKeyboardButton(text=t.capitalize(), callback_data=f"media:{t}") for t in types_]]
     )
-    await message.answer("Choose ad types:", reply_markup=keyboard)
+    await message.answer("📸 Choose ad types:", reply_markup=keyboard)
+
+
+@tg_router.callback_query(F.data == "skip_geo")
+async def handle_skip_geo(callback: types.CallbackQuery, state: FSMContext):
+    await callback.message.delete()
+    await state.update_data({"country": None})
+    await state.set_state(CreativesState.choose_type)
+
+    types_ = ["image", "video", "all"]
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text=t.capitalize(), callback_data=f"media:{t}") for t in types_]]
+    )
+    await callback.message.answer("📸 Choose ad types:", reply_markup=keyboard)
 
 
 @tg_router.callback_query(CreativesState.choose_type)
@@ -356,7 +340,7 @@ async def handle_period_selection(callback: types.CallbackQuery, state: FSMConte
     ])
 
     await callback.message.answer(
-        f"You selected period: {period}\n\n🔤 Please enter a keyword to filter creatives, or press *Skip* to continue without it:",
+        f"You selected period: {period}\n\n🔤 Please enter a keyword for better result(exp Chicken Road), or press *Skip* to continue without it:",
         reply_markup=keyboard,
         parse_mode="Markdown"
     )
@@ -382,8 +366,7 @@ async def handle_skip_keyword(callback: types.CallbackQuery, state: FSMContext):
 
 
 async def proceed_creative_search(message: types.Message, state: FSMContext):
-    processing_message = await message.answer_animation(animation=GIF_URL,
-                                                        caption="Processing your request...")
+    processing_message = await message.answer(text="Processing your request...")
 
     telegram_id = message.from_user.id if str(message.from_user.id) != SELF_ID else message.chat.id
     data = await state.get_data()
@@ -403,8 +386,7 @@ async def proceed_creative_search(message: types.Message, state: FSMContext):
 
 @tg_router.callback_query(F.data == "next_ads_search")
 async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
-    processing_message = await callback.message.answer_animation(animation=GIF_URL,
-                                                                 caption="Processing your request...")
+    processing_message = await callback.message.answer(text="Processing your request...")
     state_data = await state.get_data()
     json = {
         "telegram_id": str(callback.message.chat.id),
@@ -488,11 +470,7 @@ async def get_fav_creatives(callback: types.CallbackQuery, state: FSMContext):
 
 @tg_router.callback_query(F.data.startswith("pin_run:"))
 async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
-    # ⏳ Optional loading message
-    processing_message = await callback.message.answer_animation(
-        animation=GIF_URL,
-        caption="Processing your saved search..."
-    )
+    processing_message = await callback.message.answer(text="Processing your request...")
     pin_id_from_callback = callback.data.split(":")[1]
     user_data = await state.get_data()
     user_pins = user_data.get("user_pins", {})
@@ -566,8 +544,7 @@ async def similar_search(callback: types.CallbackQuery, state: FSMContext):
 async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
     telegram_id = callback.message.from_user.id if str(
         callback.message.from_user.id) != SELF_ID else callback.message.chat.id
-    processing_message = await callback.message.answer_animation(animation=GIF_URL,
-                                                                 caption="Processing your request...")
+    processing_message = await callback.message.answer(text="Processing your request...")
     user_data = await state.get_data()
     state_data = await state.get_data()
     json = {
@@ -630,7 +607,7 @@ async def send_similar_creos(
                 # fallback якщо немає медіа, лише лінк
                 await bot.send_message(
                     chat_id=message.chat.id,
-                    text=f"🔗 [Open media]({url})\n \nDays running: {days_running}",
+                    text=f"🔗 Can't load media, but you can open in browser: [Open media]({url})\n \nDays running: {days_running}",
                     parse_mode="Markdown",
                     reply_markup=keyboard
                 )
@@ -704,7 +681,7 @@ async def send_creos(
             except exceptions.TelegramBadRequest as e:
                 await bot.send_message(
                     chat_id=message.chat.id,
-                    text=f"🔗 [Open media]({url})\n \nDays running: {days_running}",
+                    text=f"🔗 Can't load media, but you can open in browser: [Open media]({url})\n \nDays running: {days_running}",
                     parse_mode="Markdown",
                     reply_markup=keyboard
                 )

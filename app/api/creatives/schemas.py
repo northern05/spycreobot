@@ -22,7 +22,7 @@ class CreativeRequest(BaseModel):
     telegram_id: str
     niche: str
     placements: list | None = None
-    country: str
+    country: str | None = None
     ad_type: str | None = None
     period: str | None = None
     page_id: str | None = None

@@ -8,171 +8,9 @@ from typing import List, Optional, Tuple, Dict, Any
 import hashlib
 from googletrans import Translator
 
+from const import *
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-CONTENT_CHAR_LIMIT = 3000
-
-COMMERCIAL_KEYWORDS = {
-    "download", "install", "app", "play", "register", "start", "learn more"
-}
-
-COUNTRY_TO_LANG_CODE = {
-    # Англомовні країни
-    # "US": "en",  # United States
-    # "GB": "en",  # United Kingdom
-    # "CA": "en",  # Canada (основна англійська, але також є fr)
-    # "AU": "en",  # Australia
-    # "IE": "en",  # Ireland
-    # "NZ": "en",  # New Zealand
-    # "ZA": "en",  # South Africa (основна англійська, але багато інших офіційних)
-    # "SG": "en",  # Singapore (основна англійська, але також zh, ms, ta)
-
-    # Європа
-    "UA": "uk",  # Ukraine
-    "DE": "de",  # Germany
-    "FR": "fr",  # France
-    "ES": "es",  # Spain
-    "IT": "it",  # Italy
-    "PT": "pt",  # Portugal
-    "NL": "nl",  # Netherlands
-    "BE": "nl",  # Belgium (nl, fr, de) - обрано nl як основну
-    "CH": "de",  # Switzerland (de, fr, it) - обрано de як основну
-    "AT": "de",  # Austria
-    "PL": "pl",  # Poland
-    "CZ": "cs",  # Czech Republic
-    "SK": "sk",  # Slovakia
-    "HU": "hu",  # Hungary
-    "RO": "ro",  # Romania
-    "GR": "el",  # Greece
-    "SE": "sv",  # Sweden
-    "NO": "no",  # Norway
-    "DK": "da",  # Denmark
-    "FI": "fi",  # Finland
-    "IS": "is",  # Iceland
-    "TR": "tr",  # Turkey
-    "BG": "bg",  # Bulgaria
-    "HR": "hr",  # Croatia
-    "RS": "sr",  # Serbia
-    "SI": "sl",  # Slovenia
-    "BA": "bs",  # Bosnia and Herzegovina (bs, sr, hr) - обрано bs
-    "AL": "sq",  # Albania
-    "MK": "mk",  # North Macedonia
-    "LT": "lt",  # Lithuania
-    "LV": "lv",  # Latvia
-    "EE": "et",  # Estonia
-
-    # Азія
-    "CN": "zh",  # China
-    "JP": "ja",  # Japan
-    "KR": "ko",  # South Korea
-    "IN": "hi",  # India (основна хінді, але також en, багато регіональних)
-    "ID": "id",  # Indonesia
-    "PH": "en",  # Philippines (en, tl) - обрано en
-    "TH": "th",  # Thailand
-    "VN": "vi",  # Vietnam
-    "MY": "ms",  # Malaysia (основна малайська, але також en, zh, ta)
-    "PK": "ur",  # Pakistan (основна урду, але також en, багато регіональних)
-    "BD": "bn",  # Bangladesh
-    "IR": "fa",  # Iran
-    "IQ": "ar",  # Iraq (ar, ku) - обрано ar
-    "SA": "ar",  # Saudi Arabia
-    "AE": "ar",  # United Arab Emirates (основна арабська, але en широко поширена)
-    "IL": "he",  # Israel (he, ar) - обрано he
-
-    # Південна Америка
-    "BR": "pt",  # Brazil
-    "MX": "es",  # Mexico
-    "AR": "es",  # Argentina
-    "CO": "es",  # Colombia
-    "CL": "es",  # Chile
-    "PE": "es",  # Peru
-    "VE": "es",  # Venezuela
-
-    # Африка
-    "EG": "ar",  # Egypt
-    "NG": "en",  # Nigeria (основна англійська, але багато регіональних)
-    "DZ": "ar",  # Algeria (ar, fr) - обрано ar
-    "MA": "ar",  # Morocco (ar, fr) - обрано ar
-}
-NICHE_KEYWORDS_COMBINATIONS = {
-    "gambling": [
-        # 🔥 Агресивні, high-CTR, банерні/CPA формати
-        ["no", "deposit", "bonus"],
-        ["download", "bonus", "play"],
-        ["real", "money", "casino"],
-        ["cashout", "fast", "payout"],
-        ["instant", "withdrawal", "spins"],
-        ["no", "verification", "bonus"],
-        ["new", "account", "bonus"],
-        ["100%", "match", "bonus"],
-        ["crypto", "casino", "btc"],
-
-        # 🎰 Ігрові CTA, які часто з’являються в банерах/лендінгах
-        ["free", "spins", "casino"],
-        ["jackpot", "win", "game"],
-        ["slot", "register", "lucky"],
-        ["play", "casino", "live"],
-        ["tournament", "bonus", "code"],
-        ["download", "register", "win"],
-
-        # 📱 Мобільні додатки, Android traffic
-        ["mobile", "casino", "app"],
-        ["app", "mobile", "android"],
-        ["mobile", "slots", "777"],
-
-        # 💸 Виплати, кешбек, фінансові теми
-        ["payout", "withdraw", "cashout"],
-        ["withdraw", "deposit", "claim"],
-        ["fast", "real", "money"],
-        ["offer", "deposit", "cash"],
-
-        # 💡 Промо-терміни, бонуси
-        ["bonus", "win", "now"],
-        ["promo", "spin", "free"],
-        ["welcome", "jackpot", "claim"],
-        ["exclusive", "offer", "limited"],
-        ["big", "prize", "today"],
-        ["unlimited", "chance", "today"],
-
-        # 🧠 Менш агресивні — більше схожі на соціальний формат
-        ["online", "bonus", "slot"],
-        ["bet", "win", "now"],
-        ["games", "bet", "money"],
-        ["lucky", "exclusive", "big"],
-        ["betting", "online", "site"],
-        ["new", "player", "bonus"],
-
-        # 🎲 Класичні азартні ігри (менш рекламні, більше контентні)
-        ["blackjack", "poker", "game"],
-        ["roulette", "baccarat", "card"],
-        ["slots", "machines", "online"]
-    ],
-    "crypto": [
-        ["crypto", "nft"],
-        ["bitcoin", "ethereum"],
-        ["web3", "blockchain"]
-    ],
-    "nutra": [
-        ["supplement", "keto"],
-        ["pills", "weight loss"],
-        ["vitamins", "skincare"]
-    ],
-    "dating": [
-        ["dating app", "match"],
-        ["love", "singles"],
-        ["romance", "dating"]
-    ],
-    "products": [
-        ["buy now", "shop"],
-        ["discount", "shipping"],
-        ["e-commerce", "online store"]
-    ],
-    "gaming": [
-        ["game", "mmorpg"],
-        ["mobile", "pc"],
-        ["console", "gameplay"]
-    ]
-}
 
 
 class FacebookAdsLibraryDriver:
@@ -240,7 +78,7 @@ class FacebookAdsLibraryDriver:
 
     async def _fetch_ads(self, params: dict) -> Dict[str, Any]:
         retries = 3
-        retry_delay = 2
+        retry_delay = 1
         for attempt in range(1, retries + 1):
             try:
                 response = await self.client.get(self.api_url, params=params)
@@ -262,7 +100,7 @@ class FacebookAdsLibraryDriver:
                 logging.warning(f"Request error: {e}. Attempt {attempt}/{retries}. Retrying in {retry_delay}s...")
                 if attempt < retries:
                     await asyncio.sleep(retry_delay)
-                    retry_delay *= 2
+                    retry_delay *= 1.1
                 else:
                     logging.error(f"Failed to fetch Facebook Ads after {retries} attempts: {e}")
                     raise Exception(f"Failed to fetch Facebook Ads after {retries} attempts: {e}") from e
@@ -275,10 +113,10 @@ class FacebookAdsLibraryDriver:
             self,
             search_term: str,
             placements: Optional[List[str]],
-            country: str,
             ad_type: str,
             period: str = "month",
             limit: int = 100,
+            country: str = None,
             page_id: str = None,
             after: Optional[str] = None
     ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
@@ -286,7 +124,7 @@ class FacebookAdsLibraryDriver:
         params = {
             "access_token": self.access_token,
             "search_terms": search_term,
-            "ad_reached_countries": country,
+            "ad_reached_countries": country if country else ",".join(COUNTRY_TO_LANG_CODE.keys()),
             "ad_active_status": "ACTIVE",
             "media_type": ad_type.upper() if ad_type else "ALL",
             "fields": ",".join([
@@ -331,12 +169,12 @@ class FacebookAdsLibraryDriver:
             self,
             niche: str,
             placements: Optional[List[str]],
-            country: Optional[str],
             ad_type: Optional[str],
             period: str,
             api_call_limit: int,
             start_combination_index: int,
             start_cursor: Optional[str],
+            country: Optional[str] = None,
             page_id: Optional[str] = None,
             keyword: Optional[str] = None
     ) -> Tuple[List[Dict[str, Any]], Optional[str], int]:
@@ -441,30 +279,42 @@ class FacebookAdsLibraryDriver:
                 return None
 
             full_text_content = (title + " " + description + " " + body).lower()
-            if country and country in COUNTRY_TO_LANG_CODE:
-                target_lang = COUNTRY_TO_LANG_CODE[country]
-                translated_commercial_keywords = set()
+            translated_full_text_content = full_text_content  # За замовчуванням, якщо переклад не потрібен або невдалий
 
-                for base_word in COMMERCIAL_KEYWORDS:
-                    try:
-                        translated_word_obj = await self.translator.translate(base_word, dest=target_lang)
-                        if translated_word_obj and translated_word_obj.text:
-                            translated_commercial_keywords.add(translated_word_obj.text.lower())
+            if full_text_content.strip():  # Перевіряємо, чи є текст для перекладу
+                try:
+                    # Асинхронний виклик синхронного методу перекладу
+                    detected_lang_obj = await self.translator.detect(text=full_text_content)
+                    detected_lang_code = detected_lang_obj.lang
+
+                    logging.info(f"Ad ID {ad_id}: Detected language: {detected_lang_code}")
+
+                    # Перекладаємо на англійську, якщо мова не англійська
+                    if detected_lang_code != 'en':
+                        translated_text_obj = await self.translator.translate(text=full_text_content, dest='en')
+                        if translated_text_obj and translated_text_obj.text:
+                            translated_full_text_content = translated_text_obj.text.lower()
+                            logging.info(f"Ad ID {ad_id}: Translated from {detected_lang_code} to English.")
                         else:
-                            logging.warning(f"Could not translate '{base_word}' to {target_lang}.")
-                    except Exception as translate_e:
-                        logging.error(f"Translation error for '{base_word}' to {target_lang}: {translate_e}")
-                        translated_commercial_keywords.add(base_word.lower())
-                is_commercial = any(word in full_text_content for word in translated_commercial_keywords)
-                logging.info(
-                    f"Ad ID {ad_id}: Translated keywords for '{country}' ({target_lang}): {translated_commercial_keywords}. Is commercial: {is_commercial}")
+                            logging.warning(f"Ad ID {ad_id}: Could not translate full_text_content.")
+                    else:
+                        logging.info(f"Ad ID {ad_id}: Content already in English.")
 
+                except Exception as translate_e:
+                    logging.error(
+                        f"Ad ID {ad_id}: Error during language detection or translation: {translate_e}. Using original content for check.")
+                    # Якщо переклад не вдався, продовжуємо з оригінальним текстом
+                    translated_full_text_content = full_text_content
             else:
-                is_commercial = any(word in full_text_content for word in COMMERCIAL_KEYWORDS)
-                logging.info(f"Ad ID {ad_id}: Using default English keywords. Is commercial: {is_commercial}")
+                logging.info(f"Ad ID {ad_id}: No full text content to translate.")
+
+            # Перевіряємо наявність англійських комерційних слів у (можливо) перекладеному тексті
+            is_commercial = any(word in translated_full_text_content for word in COMMERCIAL_KEYWORDS)
+
+            logging.info(f"Ad ID {ad_id}: Is commercial (based on English keywords): {is_commercial}")
 
             if not is_commercial:
-                logging.info(f"Excluding ad ID {ad_id} as non-commercial (no relevant translated keywords detected).")
+                logging.info(f"Excluding ad ID {ad_id} as non-commercial (no relevant English keywords detected).")
                 return None
             return {
                 "id": ad_id,
@@ -655,7 +505,7 @@ class FacebookAdsLibraryDriver:
         self.page.on("response", handle_response)
 
         await self.page.goto(fb_ad_url)
-        await self.page.wait_for_timeout(100)  # зачекати на завантаження ресурсів
+        await self.page.wait_for_timeout(50)
 
         # await browser.close()
 
@@ -669,7 +519,7 @@ class FacebookAdsLibraryDriver:
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BO4M3zyPU6jZCNjobAT27u3ixq0wTaurSYW4Fts82eAsQbWpt9FGi7dtM57IEv1o9A0ClBv6ewdAeZAJRifZAuIwBeGrxy4qBllnFb7TyWJzXvpgpBWPsKjduZCn2joH9aOgviUtZA3ZCbCQ3KAZCA0nZAjpOomNg31VIKC3neSjyqV1gI9Cn4SDwoDECtAxCE8gyVh90oN8ZB8t3JGhZBrLkoBKJZC57pldnAZDZD",
+            access_token="EAAKCNpvlGQ8BO665WfsiYFltEONDSwZCpGjflXdgHLBxbYzoaVaB1pOgsSPRDO8VMiEBBi6kZA8gZBBtAis8OZCztfnxQf9uorLOevckOTs2se4oM0FZCLkAm5SIGTHZCCFmXkWG8If8r9nck4yPTeGWAJjYzq3iPzKUDyoGhuZAUzuccZBl5CR6PLZCn4OxvO4t1ZAxVDznfxj2oVrUZAsjFI4c7cGXXmLuEFDCZBbGGJHSyAZDZD",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"
@@ -686,7 +536,6 @@ if __name__ == '__main__':
                 page_size=page_size,
                 niche="gambling",  # Now specifically gambling
                 placements=["facebook", "instagram"],
-                country="GB",  # Example country for gambling
                 ad_type="all",
                 period="month",
                 # keyword="casino",  # Broad keyword for gambling
@@ -713,7 +562,6 @@ if __name__ == '__main__':
                     search_cursor=search_cursor_page1,  # Pass the cursor from the previous page
                     niche="gambling",  # Re-pass original search parameters
                     placements=["facebook", "instagram"],
-                    country="GB",
                     ad_type="all",
                     period="month"
                 )
