@@ -115,7 +115,7 @@ class FacebookAdsLibraryDriver:
             placements: Optional[List[str]],
             ad_type: str,
             period: str = "month",
-            limit: int = 100,
+            limit: int = 10,
             country: str = None,
             page_id: str = None,
             after: Optional[str] = None
@@ -156,8 +156,7 @@ class FacebookAdsLibraryDriver:
 
             formatted_ads = []
             for ad in raw_ads:
-                # _format_ad will now perform content-based filtering including body length
-                formatted = await self._format_ad(ad=ad, placements=placements, country=country)
+                formatted = await self._format_ad(ad=ad, placements=placements)
                 if formatted:
                     formatted_ads.append(formatted)
             return formatted_ads, next_cursor
@@ -228,8 +227,7 @@ class FacebookAdsLibraryDriver:
     async def _format_ad(
             self,
             ad: dict,
-            placements: Optional[List[str]] = None,
-            country: Optional[str] = None
+            placements: Optional[List[str]] = None
     ) -> Optional[Dict[str, Any]]:
         EXCLUDED_TITLE = "This content was removed because it didn't follow our Advertising Standards."
         ad_id = ad.get("id")
@@ -376,7 +374,7 @@ class FacebookAdsLibraryDriver:
             seen_content_hashes = set()
             logging.info("Starting new unique ad search from scratch.")
 
-        api_fetch_limit = max(page_size, 100)
+        api_fetch_limit = max(page_size, 10)
 
         # Initialize ads_chunk and next_combination_index before the loop/try block
         ads_chunk = []
