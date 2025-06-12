@@ -638,12 +638,6 @@ async def send_creos(
                 await timer_task
             except asyncio.CancelledError:
                 pass
-            if timer_message_id:
-                try:
-                    await bot.delete_message(chat_id=message.chat.id, message_id=timer_message_id)
-                    logging.info(f"Таймер повідомлення {timer_message_id} видалено після відповіді.")
-                except Exception as e:
-                    logging.warning(f"Не вдалося видалити таймер повідомлення {timer_message_id}: {e}")
     if response_data:
 
         if not response_data.get("ads"):
