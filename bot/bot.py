@@ -371,7 +371,7 @@ async def handle_skip_keyword(callback: types.CallbackQuery, state: FSMContext):
 
 
 async def proceed_creative_search(message: types.Message, state: FSMContext):
-    timer_message_id, timer_task = await send_and_update_timer(bot, message.chat.id, initial_duration=59, interval=1)
+    timer_message_id, timer_task = await send_and_update_timer(bot, message.chat.id, initial_duration=120, interval=1)
 
     telegram_id = message.from_user.id if str(message.from_user.id) != SELF_ID else message.chat.id
     data = await state.get_data()
@@ -397,7 +397,7 @@ async def proceed_creative_search(message: types.Message, state: FSMContext):
 
 @tg_router.callback_query(F.data == "next_ads_search")
 async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
-    timer_message_id, timer_task = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=59,
+    timer_message_id, timer_task = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=120,
                                                                interval=1)
     state_data = await state.get_data()
     json = {
@@ -488,7 +488,7 @@ async def get_fav_creatives(callback: types.CallbackQuery, state: FSMContext):
 
 @tg_router.callback_query(F.data.startswith("pin_run:"))
 async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
-    timer_message_id, timer_task = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=59,
+    timer_message_id, timer_task = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=120,
                                                                interval=1)
     pin_id_from_callback = callback.data.split(":")[1]
     user_data = await state.get_data()
@@ -541,7 +541,7 @@ async def delete_saved_pin(callback: types.CallbackQuery):
 async def similar_search(callback: types.CallbackQuery, state: FSMContext):
     page_id = callback.data.split(":")[1]
     user_data = await state.get_data()
-    timer_message_id, timer_task = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=59,
+    timer_message_id, timer_task = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=120,
                                                                interval=1)
     telegram_id = callback.message.from_user.id if str(
         callback.message.from_user.id) != SELF_ID else callback.message.chat.id
@@ -570,7 +570,7 @@ async def similar_search(callback: types.CallbackQuery, state: FSMContext):
 async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
     telegram_id = callback.message.from_user.id if str(
         callback.message.from_user.id) != SELF_ID else callback.message.chat.id
-    timer_message_id, timer_task = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=59,
+    timer_message_id, timer_task = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=120,
                                                                interval=1)
     user_data = await state.get_data()
     state_data = await state.get_data()
