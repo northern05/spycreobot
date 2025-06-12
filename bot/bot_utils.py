@@ -180,6 +180,9 @@ async def _update_timer_task(bot: Bot, chat_id: int, message_id: int, duration: 
         except Exception as e:
             logging.error(f"Error updating timer message {message_id}: {e}")
             break
-    await bot.delete_message(chat_id=chat_id, message_id=message_id)
+    try:
+        await bot.delete_message(chat_id=chat_id, message_id=message_id)
+    except Exception as e:
+        logging.error(f"Msg not exists {str(e.args)}")
     logging.info(f"Timer task for {chat_id}:{message_id} completed its internal countdown.")
 
