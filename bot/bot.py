@@ -371,7 +371,7 @@ async def handle_skip_keyword(callback: types.CallbackQuery, state: FSMContext):
 
 
 async def proceed_creative_search(message: types.Message, state: FSMContext):
-    timer_message_id = await send_and_update_timer(bot, message.chat.id, initial_duration=59, interval=1)
+    timer_message_id, timer_task = await send_and_update_timer(bot, message.chat.id, initial_duration=59, interval=1)
 
     telegram_id = message.from_user.id if str(message.from_user.id) != SELF_ID else message.chat.id
     data = await state.get_data()
@@ -383,15 +383,21 @@ async def proceed_creative_search(message: types.Message, state: FSMContext):
         "country": data.get("country"),
         "ad_type": data.get("ad_type"),
         "period": data.get("period"),
-        "keyword": data.get("keyword")  # може бути None
+        "keyword": data.get("keyword")
     }
 
-    await send_creos(json=json, message=message, state=state, timer_message_id=timer_message_id)
+    await send_creos(
+        json=json,
+        message=message,
+        state=state,
+        timer_message_id=timer_message_id
+    )
 
 
 @tg_router.callback_query(F.data == "next_ads_search")
 async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
-    timer_message_id = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=59, interval=1)
+    timer_message_id, timer_task = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=59,
+                                                               interval=1)
     state_data = await state.get_data()
     json = {
         "telegram_id": str(callback.message.chat.id),
@@ -403,7 +409,13 @@ async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
         "keyword": state_data.get("keyword"),
         "search_cursor": state_data.get("search_cursor")
     }
-    await send_creos(json=json, message=callback.message, state=state, timer_message_id=timer_message_id)
+    await send_creos(
+        json=json,
+        message=callback.message,
+        state=state,
+        timer_message_id=timer_message_id,
+        timer_task=timer_task
+    )
 
 
 @tg_router.callback_query(F.data == "pin_search")
@@ -475,7 +487,8 @@ async def get_fav_creatives(callback: types.CallbackQuery, state: FSMContext):
 
 @tg_router.callback_query(F.data.startswith("pin_run:"))
 async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
-    timer_message_id = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=59, interval=1)
+    timer_message_id, timer_task = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=59,
+                                                               interval=1)
     pin_id_from_callback = callback.data.split(":")[1]
     user_data = await state.get_data()
     user_pins = user_data.get("user_pins", {})
@@ -503,7 +516,13 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
         "keyword": keyword,
     }
     await state.update_data(data)
-    await send_creos(json=data, message=callback.message, state=state, timer_message_id=timer_message_id)
+    await send_creos(
+        json=data,
+        message=callback.message,
+        state=state,
+        timer_message_id=timer_message_id,
+        timer_task=timer_task
+    )
 
 
 @tg_router.callback_query(F.data.startswith("pin_delete:"))
@@ -521,7 +540,8 @@ async def delete_saved_pin(callback: types.CallbackQuery):
 async def similar_search(callback: types.CallbackQuery, state: FSMContext):
     page_id = callback.data.split(":")[1]
     user_data = await state.get_data()
-    timer_message_id = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=59, interval=1)
+    timer_message_id, timer_task = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=59,
+                                                               interval=1)
     telegram_id = callback.message.from_user.id if str(
         callback.message.from_user.id) != SELF_ID else callback.message.chat.id
 
@@ -535,11 +555,13 @@ async def similar_search(callback: types.CallbackQuery, state: FSMContext):
 
     await state.update_data(json)
 
-    await send_similar_creos(
+    await send_creos(
         json=json,
         message=callback.message,
         timer_message_id=timer_message_id,
-        state=state
+        state=state,
+        timer_task=timer_task,
+        similar=True
     )
 
 
@@ -547,7 +569,8 @@ async def similar_search(callback: types.CallbackQuery, state: FSMContext):
 async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
     telegram_id = callback.message.from_user.id if str(
         callback.message.from_user.id) != SELF_ID else callback.message.chat.id
-    timer_message_id = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=59, interval=1)
+    timer_message_id, timer_task = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=59,
+                                                               interval=1)
     user_data = await state.get_data()
     state_data = await state.get_data()
     json = {
@@ -557,97 +580,69 @@ async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
         "search_cursor": state_data.get("search_cursor"),
         "niche": user_data.get("niche")
     }
-    await send_similar_creos(json=json, message=callback.message, state=state, timer_message_id=timer_message_id)
-
-
-async def send_similar_creos(
-        json: dict,
-        message: types.Message,
-        state: FSMContext,
-        timer_message_id: int
-):
-    response = requests.get(url=f"{API_URL}/creatives", json=json)
-    if timer_message_id:
-        try:
-            await bot.delete_message(chat_id=message.chat.id, message_id=timer_message_id)
-        except Exception as e:
-            logging.warning(f"Не вдалося видалити таймер повідомлення {timer_message_id}: {e}")
-    if response.status_code == 402:
-        await message.answer("You have not enough credits to get creatives! \nTo continue - buy credits!")
-        await show_credits_menu(event=message, bot=bot)
-    elif response.status_code == 200:
-        data = response.json()
-
-        if not data.get("ads"):
-            await message.answer("No ads by your query", parse_mode='MarkdownV2')
-
-        ads = data.get("ads")
-        search_cursor = data.get("after")
-        await state.update_data({"search_cursor": search_cursor})
-        for creative in ads:
-            url = creative.get('url')
-            media_url = creative.get('media_url')
-            days_running = creative.get("days_running")
-            keyboard = InlineKeyboardMarkup(
-                inline_keyboard=[[
-                    InlineKeyboardButton(text="🔗 Open Ad in Browser", url=url)]]
-            )
-
-            if media_url and "video" in media_url:
-                await bot.send_video(
-                    chat_id=message.chat.id,
-                    video=media_url,
-                    reply_markup=keyboard,
-                    caption=f"Days running: {days_running}"
-                )
-            elif media_url and any(ext in media_url for ext in [".jpg", ".jpeg", ".png"]):
-                await bot.send_photo(
-                    chat_id=message.chat.id,
-                    photo=media_url,
-                    reply_markup=keyboard,
-                    caption=f"Days running: {days_running}"
-                )
-            else:
-                # fallback якщо немає медіа, лише лінк
-                await bot.send_message(
-                    chat_id=message.chat.id,
-                    text=f"🔗 Can't load media, but you can open in browser: [Open media]({url})\n \nDays running: {days_running}",
-                    parse_mode="Markdown",
-                    reply_markup=keyboard
-                )
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[[InlineKeyboardButton(text="Next", callback_data="next_similar_search")],
-                             [InlineKeyboardButton(text="Main menu", callback_data="main_menu")]]
-        )
-        await message.answer("Do you want to get next 10 creatives?", reply_markup=keyboard)
-    else:
-        await message.answer("Something went wrong!")
-        await main_menu(event=message)
+    await send_creos(
+        json=json,
+        message=callback.message,
+        state=state,
+        timer_message_id=timer_message_id,
+        timer_task=timer_task,
+        similar=True
+    )
 
 
 async def send_creos(
         json: dict,
         message: types.Message,
         state: FSMContext,
-        timer_message_id: int
+        timer_message_id: int,
+        timer_task,
+        similar: bool = False
 ):
-    response = requests.get(url=f"{API_URL}/creatives", json=json)
-    if timer_message_id:
-        try:
-            await bot.delete_message(chat_id=message.chat.id, message_id=timer_message_id)
-        except Exception as e:
-            logging.warning(f"Не вдалося видалити таймер повідомлення {timer_message_id}: {e}")
-    if response.status_code == 402:
-        await message.answer("You have not enough credits to get creatives! \nTo continue - buy credits!")
-        await show_credits_menu(event=message, bot=bot)
-    elif response.status_code == 200:
-        data = response.json()
+    response_data = None
+    try:
+        response = requests.get(url=f"{API_URL}/creatives", json=json)
+        response.raise_for_status()
+        response_data = response.json()
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 402:
+            await message.answer("You have not enough credits to get creatives! \nTo continue - buy credits!")
+            await show_credits_menu(event=message, bot=bot)
+            return
+        else:
+            logging.error(f"HTTP error during API call: {e}")
+            await message.answer("Something went wrong with the API call!")
+            await main_menu(event=message, bot=bot)  # Передаємо bot
+            return
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Network error during API call: {e}")
+        await message.answer("Something went wrong with the network connection to the API!")
+        await main_menu(event=message, bot=bot)  # Передаємо bot
+        return
+    except Exception as e:
+        logging.exception(f"Unexpected error during API call: {e}")
+        await message.answer("An unexpected error occurred!")
+        await main_menu(event=message, bot=bot)  # Передаємо bot
+        return
+    finally:
+        if timer_task:
+            timer_task.cancel()
+            try:
+                await timer_task
+            except asyncio.CancelledError:
+                pass
+            if timer_message_id:
+                try:
+                    await bot.delete_message(chat_id=message.chat.id, message_id=timer_message_id)
+                    logging.info(f"Таймер повідомлення {timer_message_id} видалено після відповіді.")
+                except Exception as e:
+                    logging.warning(f"Не вдалося видалити таймер повідомлення {timer_message_id}: {e}")
+    if response_data:
 
-        if not data.get("ads"):
+        if not response_data.get("ads"):
             await message.answer("No ads by your query", parse_mode='MarkdownV2')
 
-        ads = data.get("ads")
-        search_cursor = data.get("after")
+        ads = response_data.get("ads")
+        search_cursor = response_data.get("after")
         await state.update_data({"search_cursor": search_cursor})
         for creative in ads:
             url = creative.get('url')
@@ -690,11 +685,17 @@ async def send_creos(
                     parse_mode="Markdown",
                     reply_markup=keyboard
                 )
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[[InlineKeyboardButton(text="Next", callback_data="next_ads_search")],
-                             [InlineKeyboardButton(text="Main menu", callback_data="main_menu")],
-                             [InlineKeyboardButton(text="Pin search", callback_data="pin_search")]]
-        )
+        if similar:
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[[InlineKeyboardButton(text="Next", callback_data="next_similar_search")],
+                                 [InlineKeyboardButton(text="Main menu", callback_data="main_menu")]]
+            )
+        else:
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[[InlineKeyboardButton(text="Next", callback_data="next_ads_search")],
+                                 [InlineKeyboardButton(text="Main menu", callback_data="main_menu")],
+                                 [InlineKeyboardButton(text="Pin search", callback_data="pin_search")]]
+            )
         await message.answer("Do you want to get next 10 creatives?", reply_markup=keyboard)
     else:
         await message.answer("Something went wrong!")

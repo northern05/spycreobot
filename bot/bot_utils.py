@@ -7,6 +7,8 @@ import httpx
 import requests
 import string
 from urllib.parse import urlparse
+
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.fsm.state import State, StatesGroup
@@ -129,24 +131,24 @@ async def download_file(url: str, save_path: str) -> bool:
 
 async def send_and_update_timer(bot: Bot, chat_id: int, initial_duration: int = 59, interval: int = 1):
     """
-    Відправляє повідомлення з таймером зворотного відліку і оновлює його.
-    Повертає message_id повідомлення.
+    Відправляє повідомлення з таймером зворотного відліку і повертає його message_id.
+    Створює окремий task для оновлення.
     """
     try:
         timer_message = await bot.send_message(
             chat_id=chat_id,
             text=f"We really want to process your request as soon as possible, but ads are heavy, please wait so we can provide a quality result.... ⏳ {initial_duration} seconds"
         )
-        logging.info(f"Відправлено початковий таймер для чату {chat_id}, message_id: {timer_message.message_id}")
+        logging.info(f"Initial timer sent for chat {chat_id}, message_id: {timer_message.message_id}")
 
-        # Запускаємо таск для оновлення таймера
-        asyncio.create_task(
-            _update_timer_task(bot, timer_message.chat.id, timer_message.message_id, initial_duration, interval))
-
-        return timer_message.message_id
+        # Створюємо таск для оновлення таймера. Цей таск повертається і запускається.
+        timer_task = asyncio.create_task(
+            _update_timer_task(bot, timer_message.chat.id, timer_message.message_id, initial_duration, interval)
+        )
+        return timer_message.message_id, timer_task  # Повертаємо ID повідомлення і об'єкт таска
     except Exception as e:
-        logging.error(f"Помилка при відправці початкового таймера: {e}")
-        return None
+        logging.error(f"Error sending initial timer message: {e}")
+        return None, None  # Повертаємо None, якщо не вдалося відправити початкове повідомлення
 
 
 async def _update_timer_task(bot: Bot, chat_id: int, message_id: int, duration: int, interval: int):
@@ -165,19 +167,26 @@ async def _update_timer_task(bot: Bot, chat_id: int, message_id: int, duration: 
                 message_id=message_id,
                 text=text_to_edit
             )
-            logging.debug(f"Оновлено таймер для {chat_id}:{message_id} до {remaining_time}с")
+            logging.debug(f"Updated timer for {chat_id}:{message_id} to {remaining_time}s")
 
             if remaining_time > 0:
                 await asyncio.sleep(interval)
             else:
-                break  # Вийти з циклу після останнього оновлення до 0
+                break  # Exit loop after the last update to 0
 
         except asyncio.CancelledError:
             # Цей виняток буде викликаний, коли ми скасуємо таск ззовні
-            logging.info(f"Таймер для повідомлення {message_id} було скасовано ззовні.")
+            logging.info(f"Timer task for message {message_id} was cancelled externally.")
             break
+        except TelegramBadRequest as e:
+            # Специфічна помилка, коли повідомлення не знайдено (можливо, користувач видалив)
+            if "message to edit not found" in e.message:
+                logging.warning(f"Timer message {message_id} not found on Telegram. Stopping update task.")
+                break  # Зупинити оновлення, бо повідомлення зникло
+            raise  # Повторно підняти інші TelegramBadRequest
         except Exception as e:
-            logging.error(f"Помилка оновлення таймера повідомлення {message_id}: {e}")
+            logging.error(f"Error updating timer message {message_id}: {e}")
             break
 
-    logging.info(f"Таймер для {chat_id}:{message_id} завершив внутрішній відлік.")
+    logging.info(f"Timer task for {chat_id}:{message_id} completed its internal countdown.")
+

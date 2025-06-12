@@ -283,7 +283,6 @@ class FacebookAdsLibraryDriver:
 
             if full_text_content.strip():  # Перевіряємо, чи є текст для перекладу
                 try:
-                    # Асинхронний виклик синхронного методу перекладу
                     detected_lang_obj = await self.translator.detect(text=full_text_content)
                     detected_lang_code = detected_lang_obj.lang
 
