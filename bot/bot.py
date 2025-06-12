@@ -251,9 +251,14 @@ async def ask_niche_creatives(event: types.Message | types.CallbackQuery, bot: B
 
 @tg_router.callback_query(CreativesState.choose_niche, F.data.startswith("niche:"))
 async def submit_placements(callback: types.CallbackQuery, state: FSMContext):
+    user_id = callback.from_user.id
     niche = callback.data.split(":")[1]
     await state.update_data({"niche": niche})
     await state.update_data({"placements": ["instagram", "facebook"]})
+    user_selection_state[user_id] = {
+        "niche": niche,
+        "placements": []
+    }
     await delete_previous_message(bot, callback.message.chat.id, callback.message.message_id)
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
