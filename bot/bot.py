@@ -601,7 +601,7 @@ async def send_creos(
 ):
     response_data = None
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=60.0) as client:
             request = httpx.Request(
                 "GET",
                 url=f"{API_URL}/creatives",
