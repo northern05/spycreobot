@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import re
@@ -9,6 +10,7 @@ from urllib.parse import urlparse
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.fsm.state import State, StatesGroup
+from aiogram import Bot
 
 API_URL: str = os.environ.get('BASE_SITE', "https://api.agent.zpoken.dev/portfolio_tracker/api/v1/portfolio")
 WALLET_REGEX = {
@@ -123,3 +125,59 @@ async def download_file(url: str, save_path: str) -> bool:
     except Exception as e:
         logging.error(f"Неочікувана помилка при завантаженні файлу з {url}: {e}")
         return False
+
+
+async def send_and_update_timer(bot: Bot, chat_id: int, initial_duration: int = 59, interval: int = 1):
+    """
+    Відправляє повідомлення з таймером зворотного відліку і оновлює його.
+    Повертає message_id повідомлення.
+    """
+    try:
+        timer_message = await bot.send_message(
+            chat_id=chat_id,
+            text=f"We really want to process your request as soon as possible, but ads are heavy, please wait so we can provide a quality result.... ⏳ {initial_duration} seconds"
+        )
+        logging.info(f"Відправлено початковий таймер для чату {chat_id}, message_id: {timer_message.message_id}")
+
+        # Запускаємо таск для оновлення таймера
+        asyncio.create_task(
+            _update_timer_task(bot, timer_message.chat.id, timer_message.message_id, initial_duration, interval))
+
+        return timer_message.message_id
+    except Exception as e:
+        logging.error(f"Помилка при відправці початкового таймера: {e}")
+        return None
+
+
+async def _update_timer_task(bot: Bot, chat_id: int, message_id: int, duration: int, interval: int):
+    """
+    Внутрішня задача, яка оновлює повідомлення з таймером.
+    """
+    for remaining_time in range(duration - interval, -1, -interval):
+        try:
+            if remaining_time > 0:
+                text_to_edit = f"Please wait searching ads... ⏳ {remaining_time} seconds"
+            else:
+                text_to_edit = "The search took longer than expected. Please wait."
+
+            await bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=message_id,
+                text=text_to_edit
+            )
+            logging.debug(f"Оновлено таймер для {chat_id}:{message_id} до {remaining_time}с")
+
+            if remaining_time > 0:
+                await asyncio.sleep(interval)
+            else:
+                break  # Вийти з циклу після останнього оновлення до 0
+
+        except asyncio.CancelledError:
+            # Цей виняток буде викликаний, коли ми скасуємо таск ззовні
+            logging.info(f"Таймер для повідомлення {message_id} було скасовано ззовні.")
+            break
+        except Exception as e:
+            logging.error(f"Помилка оновлення таймера повідомлення {message_id}: {e}")
+            break
+
+    logging.info(f"Таймер для {chat_id}:{message_id} завершив внутрішній відлік.")

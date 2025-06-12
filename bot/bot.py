@@ -371,7 +371,7 @@ async def handle_skip_keyword(callback: types.CallbackQuery, state: FSMContext):
 
 
 async def proceed_creative_search(message: types.Message, state: FSMContext):
-    processing_message = await message.answer(text="Processing your request...")
+    timer_message_id = await send_and_update_timer(bot, message.chat.id, initial_duration=59, interval=1)
 
     telegram_id = message.from_user.id if str(message.from_user.id) != SELF_ID else message.chat.id
     data = await state.get_data()
@@ -386,12 +386,12 @@ async def proceed_creative_search(message: types.Message, state: FSMContext):
         "keyword": data.get("keyword")  # може бути None
     }
 
-    await send_creos(json=json, message=message, state=state, processing_message=processing_message)
+    await send_creos(json=json, message=message, state=state, timer_message_id=timer_message_id)
 
 
 @tg_router.callback_query(F.data == "next_ads_search")
 async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
-    processing_message = await callback.message.answer(text="Processing your request...")
+    timer_message_id = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=59, interval=1)
     state_data = await state.get_data()
     json = {
         "telegram_id": str(callback.message.chat.id),
@@ -403,7 +403,7 @@ async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
         "keyword": state_data.get("keyword"),
         "search_cursor": state_data.get("search_cursor")
     }
-    await send_creos(json=json, message=callback.message, state=state, processing_message=processing_message)
+    await send_creos(json=json, message=callback.message, state=state, timer_message_id=timer_message_id)
 
 
 @tg_router.callback_query(F.data == "pin_search")
@@ -475,7 +475,7 @@ async def get_fav_creatives(callback: types.CallbackQuery, state: FSMContext):
 
 @tg_router.callback_query(F.data.startswith("pin_run:"))
 async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
-    processing_message = await callback.message.answer(text="Processing your request...")
+    timer_message_id = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=59, interval=1)
     pin_id_from_callback = callback.data.split(":")[1]
     user_data = await state.get_data()
     user_pins = user_data.get("user_pins", {})
@@ -503,11 +503,11 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
         "keyword": keyword,
     }
     await state.update_data(data)
-    await send_creos(json=data, message=callback.message, state=state, processing_message=processing_message)
+    await send_creos(json=data, message=callback.message, state=state, timer_message_id=timer_message_id)
 
 
 @tg_router.callback_query(F.data.startswith("pin_delete:"))
-async def delete_saved_pin(callback: types.CallbackQuery, state: FSMContext):
+async def delete_saved_pin(callback: types.CallbackQuery):
     pin_id_from_callback = callback.data.split(":")[1]
     response = requests.delete(url=f"{API_URL}/pins/{pin_id_from_callback}")
     if response.status_code == 200:
@@ -521,9 +521,7 @@ async def delete_saved_pin(callback: types.CallbackQuery, state: FSMContext):
 async def similar_search(callback: types.CallbackQuery, state: FSMContext):
     page_id = callback.data.split(":")[1]
     user_data = await state.get_data()
-    processing_message = await callback.message.answer_animation(animation=GIF_URL,
-                                                                 caption="Processing your request...")
-
+    timer_message_id = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=59, interval=1)
     telegram_id = callback.message.from_user.id if str(
         callback.message.from_user.id) != SELF_ID else callback.message.chat.id
 
@@ -540,7 +538,7 @@ async def similar_search(callback: types.CallbackQuery, state: FSMContext):
     await send_similar_creos(
         json=json,
         message=callback.message,
-        processing_message=processing_message,
+        timer_message_id=timer_message_id,
         state=state
     )
 
@@ -549,7 +547,7 @@ async def similar_search(callback: types.CallbackQuery, state: FSMContext):
 async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
     telegram_id = callback.message.from_user.id if str(
         callback.message.from_user.id) != SELF_ID else callback.message.chat.id
-    processing_message = await callback.message.answer(text="Processing your request...")
+    timer_message_id = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=59, interval=1)
     user_data = await state.get_data()
     state_data = await state.get_data()
     json = {
@@ -559,16 +557,21 @@ async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
         "search_cursor": state_data.get("search_cursor"),
         "niche": user_data.get("niche")
     }
-    await send_similar_creos(json=json, message=callback.message, state=state, processing_message=processing_message)
+    await send_similar_creos(json=json, message=callback.message, state=state, timer_message_id=timer_message_id)
 
 
 async def send_similar_creos(
         json: dict,
         message: types.Message,
         state: FSMContext,
-        processing_message: types.Message
+        timer_message_id: int
 ):
     response = requests.get(url=f"{API_URL}/creatives", json=json)
+    if timer_message_id:
+        try:
+            await bot.delete_message(chat_id=message.chat.id, message_id=timer_message_id)
+        except Exception as e:
+            logging.warning(f"Не вдалося видалити таймер повідомлення {timer_message_id}: {e}")
     if response.status_code == 402:
         await message.answer("You have not enough credits to get creatives! \nTo continue - buy credits!")
         await show_credits_menu(event=message, bot=bot)
@@ -581,10 +584,6 @@ async def send_similar_creos(
         ads = data.get("ads")
         search_cursor = data.get("after")
         await state.update_data({"search_cursor": search_cursor})
-        await bot.delete_message(
-            chat_id=processing_message.chat.id,
-            message_id=processing_message.message_id
-        )
         for creative in ads:
             url = creative.get('url')
             media_url = creative.get('media_url')
@@ -630,9 +629,14 @@ async def send_creos(
         json: dict,
         message: types.Message,
         state: FSMContext,
-        processing_message: types.Message
+        timer_message_id: int
 ):
     response = requests.get(url=f"{API_URL}/creatives", json=json)
+    if timer_message_id:
+        try:
+            await bot.delete_message(chat_id=message.chat.id, message_id=timer_message_id)
+        except Exception as e:
+            logging.warning(f"Не вдалося видалити таймер повідомлення {timer_message_id}: {e}")
     if response.status_code == 402:
         await message.answer("You have not enough credits to get creatives! \nTo continue - buy credits!")
         await show_credits_menu(event=message, bot=bot)
@@ -645,10 +649,6 @@ async def send_creos(
         ads = data.get("ads")
         search_cursor = data.get("after")
         await state.update_data({"search_cursor": search_cursor})
-        await bot.delete_message(
-            chat_id=processing_message.chat.id,
-            message_id=processing_message.message_id
-        )
         for creative in ads:
             url = creative.get('url')
             media_url = creative.get('media_url')
