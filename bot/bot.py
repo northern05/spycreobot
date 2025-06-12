@@ -601,9 +601,16 @@ async def send_creos(
 ):
     response_data = None
     try:
-        response = requests.get(url=f"{API_URL}/creatives", json=json)
-        response.raise_for_status()
-        response_data = response.json()
+        async with httpx.AsyncClient() as client:
+            request = httpx.Request(
+                "GET",
+                url=f"{API_URL}/creatives",
+                json=json,
+                headers={"Content-Type": "application/json"}
+            )
+            response = await client.send(request)
+            response.raise_for_status()
+            response_data = response.json()
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == 402:
             await message.answer("You have not enough credits to get creatives! \nTo continue - buy credits!")
@@ -612,17 +619,17 @@ async def send_creos(
         else:
             logging.error(f"HTTP error during API call: {e}")
             await message.answer("Something went wrong with the API call!")
-            await main_menu(event=message, bot=bot)  # Передаємо bot
+            await main_menu(event=message)  # Передаємо bot
             return
     except requests.exceptions.RequestException as e:
         logging.error(f"Network error during API call: {e}")
         await message.answer("Something went wrong with the network connection to the API!")
-        await main_menu(event=message, bot=bot)  # Передаємо bot
+        await main_menu(event=message)  # Передаємо bot
         return
     except Exception as e:
         logging.exception(f"Unexpected error during API call: {e}")
         await message.answer("An unexpected error occurred!")
-        await main_menu(event=message, bot=bot)  # Передаємо bot
+        await main_menu(event=message)  # Передаємо bot
         return
     finally:
         if timer_task:

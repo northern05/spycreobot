@@ -130,31 +130,26 @@ async def download_file(url: str, save_path: str) -> bool:
 
 
 async def send_and_update_timer(bot: Bot, chat_id: int, initial_duration: int = 59, interval: int = 1):
-    """
-    Відправляє повідомлення з таймером зворотного відліку і повертає його message_id.
-    Створює окремий task для оновлення.
-    """
     try:
-        timer_message = await bot.send_message(
+        pinned_message = await bot.send_message(
             chat_id=chat_id,
-            text=f"We really want to process your request as soon as possible, but ads are heavy, please wait so we can provide a quality result.... ⏳ {initial_duration} seconds"
+            text=f"We process your request as soon as possible, but ads are heavy, please wait for quality result.... "
         )
-        logging.info(f"Initial timer sent for chat {chat_id}, message_id: {timer_message.message_id}")
-
-        # Створюємо таск для оновлення таймера. Цей таск повертається і запускається.
+        logging.info(f"Initial timer sent for chat {chat_id}, message_id: {pinned_message.message_id}")
         timer_task = asyncio.create_task(
-            _update_timer_task(bot, timer_message.chat.id, timer_message.message_id, initial_duration, interval)
+            _update_timer_task(bot, pinned_message.chat.id, pinned_message.message_id, initial_duration, interval)
         )
-        return timer_message.message_id, timer_task  # Повертаємо ID повідомлення і об'єкт таска
+        return pinned_message.message_id, timer_task
     except Exception as e:
         logging.error(f"Error sending initial timer message: {e}")
-        return None, None  # Повертаємо None, якщо не вдалося відправити початкове повідомлення
+        return None, None
 
 
 async def _update_timer_task(bot: Bot, chat_id: int, message_id: int, duration: int, interval: int):
-    """
-    Внутрішня задача, яка оновлює повідомлення з таймером.
-    """
+    timer_msg = await bot.send_message(
+            chat_id=chat_id,
+            text=f"Start counting!"
+        )
     for remaining_time in range(duration - interval, -1, -interval):
         try:
             if remaining_time > 0:
@@ -164,7 +159,7 @@ async def _update_timer_task(bot: Bot, chat_id: int, message_id: int, duration: 
 
             await bot.edit_message_text(
                 chat_id=chat_id,
-                message_id=message_id,
+                message_id=timer_msg.message_id,
                 text=text_to_edit
             )
             logging.debug(f"Updated timer for {chat_id}:{message_id} to {remaining_time}s")
@@ -172,21 +167,19 @@ async def _update_timer_task(bot: Bot, chat_id: int, message_id: int, duration: 
             if remaining_time > 0:
                 await asyncio.sleep(interval)
             else:
-                break  # Exit loop after the last update to 0
+                break
 
         except asyncio.CancelledError:
-            # Цей виняток буде викликаний, коли ми скасуємо таск ззовні
             logging.info(f"Timer task for message {message_id} was cancelled externally.")
             break
         except TelegramBadRequest as e:
-            # Специфічна помилка, коли повідомлення не знайдено (можливо, користувач видалив)
             if "message to edit not found" in e.message:
                 logging.warning(f"Timer message {message_id} not found on Telegram. Stopping update task.")
-                break  # Зупинити оновлення, бо повідомлення зникло
-            raise  # Повторно підняти інші TelegramBadRequest
+                break
+            raise
         except Exception as e:
             logging.error(f"Error updating timer message {message_id}: {e}")
             break
-
+    await bot.delete_message(chat_id=chat_id, message_id=message_id)
     logging.info(f"Timer task for {chat_id}:{message_id} completed its internal countdown.")
 
