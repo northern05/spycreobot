@@ -155,6 +155,7 @@ async def _update_timer_task(bot: Bot, chat_id: int, message_id: int, duration: 
     """
     Внутрішня задача, яка оновлює повідомлення з таймером.
     """
+    await asyncio.sleep(2)
     for remaining_time in range(duration - interval, -1, -interval):
         try:
             if remaining_time > 0:

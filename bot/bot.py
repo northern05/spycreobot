@@ -390,7 +390,8 @@ async def proceed_creative_search(message: types.Message, state: FSMContext):
         json=json,
         message=message,
         state=state,
-        timer_message_id=timer_message_id
+        timer_message_id=timer_message_id,
+        timer_task=timer_task
     )
 
 
