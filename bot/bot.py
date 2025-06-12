@@ -229,34 +229,13 @@ async def buy_credits(callback: types.CallbackQuery, state: FSMContext):
 
 @tg_router.message(Command("get_creatives"))
 @tg_router.callback_query(F.data == "get_creatives")
-async def ask_niche_creatives(event: types.Message | types.CallbackQuery, bot: Bot, state: FSMContext):
-    await state.set_state(CreativesState.choose_niche)
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="Gambling", callback_data="niche:gambling"),
-             InlineKeyboardButton(text="Crypto", callback_data="niche:crypto")],
-            [InlineKeyboardButton(text="Nutra", callback_data="niche:nutra"),
-             InlineKeyboardButton(text="Dating", callback_data="niche:dating")],
-            [InlineKeyboardButton(text="Ecom", callback_data="niche:products"),
-             InlineKeyboardButton(text="Gaming", callback_data="niche:gaming")]
-        ]
-    )
-    if isinstance(event, types.Message):
-        await event.answer("Choose one niche:", reply_markup=keyboard)
-    elif isinstance(event, types.CallbackQuery):
-        await event.message.answer("Choose one niche:", reply_markup=keyboard)
-        await delete_previous_message(bot, event.message.chat.id, event.message.message_id)
-        await event.answer()
-
-
-@tg_router.callback_query(CreativesState.choose_niche, F.data.startswith("niche:"))
-async def submit_placements(callback: types.CallbackQuery, state: FSMContext):
+async def get_creatives(callback: types.CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
-    niche = callback.data.split(":")[1]
-    await state.update_data({"niche": niche})
+    # niche = callback.data.split(":")[1]
+    await state.update_data({"niche": "gambling"})
     await state.update_data({"placements": ["instagram", "facebook"]})
     user_selection_state[user_id] = {
-        "niche": niche,
+        "niche": "gambling",
         "placements": []
     }
     await delete_previous_message(bot, callback.message.chat.id, callback.message.message_id)

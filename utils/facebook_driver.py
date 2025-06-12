@@ -115,7 +115,7 @@ class FacebookAdsLibraryDriver:
             placements: Optional[List[str]],
             ad_type: str,
             period: str = "month",
-            limit: int = 10,
+            limit: int = 100,
             country: str = None,
             page_id: str = None,
             after: Optional[str] = None
@@ -374,7 +374,7 @@ class FacebookAdsLibraryDriver:
             seen_content_hashes = set()
             logging.info("Starting new unique ad search from scratch.")
 
-        api_fetch_limit = max(page_size, 10)
+        api_fetch_limit = max(page_size, 100)
 
         # Initialize ads_chunk and next_combination_index before the loop/try block
         ads_chunk = []
