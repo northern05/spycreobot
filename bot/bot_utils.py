@@ -129,7 +129,7 @@ async def download_file(url: str, save_path: str) -> bool:
         return False
 
 
-async def send_and_update_timer(bot: Bot, chat_id: int, initial_duration: int = 59, interval: int = 1):
+async def send_and_update_timer(bot: Bot, chat_id: int, initial_duration: int = 120, interval: int = 1):
     try:
         pinned_message = await bot.send_message(
             chat_id=chat_id,
