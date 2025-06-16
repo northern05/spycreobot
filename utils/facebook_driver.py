@@ -483,8 +483,8 @@ class FacebookAdsLibraryDriver:
 
         self.page.on("response", handle_response)
 
-        await self.page.goto(fb_ad_url)
-        await self.page.wait_for_timeout(100)
+        await self.page.goto(fb_ad_url, wait_until="domcontentloaded", timeout=60000)
+        await self.page.wait_for_timeout(1000)
 
         decoded = None
         links = await self.page.eval_on_selector_all("a", "els => els.map(el => el.href)")
