@@ -8,7 +8,7 @@ from typing import List, Optional, Tuple, Dict, Any
 import hashlib
 from googletrans import Translator
 
-from const import *
+from .const import *
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
