@@ -34,16 +34,9 @@ class FacebookAdsLibraryDriver:
     async def init_playwright(self):
         self.playwright = await async_playwright().start()
         self.browser = await self.playwright.chromium.launch(headless=True)
-        context = await self.browser.new_context()
-        self.page = await context.new_page()
-
-    async def new_browser(self):
         context = await self.browser.new_context(
-            user_agent=(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/114.0.0.0 Safari/537.36"
-            ),
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                       "(KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
             locale="en-US",
             viewport={"width": 1280, "height": 720}
         )
@@ -476,6 +469,14 @@ class FacebookAdsLibraryDriver:
             except Exception:
                 return fb_link
 
+        def is_snapshot_url_valid(url: str) -> bool:
+            try:
+                r = httpx.head(url, timeout=10, follow_redirects=True)
+                return r.status_code == 200
+            except Exception as e:
+                print(f"[HEAD check failed] {e}")
+                return False
+
         def choose_best_media(sources: list[str]) -> str | None:
             def is_valid_video(url):
                 return ".mp4" in url and "video" in url and "fbcdn.net" in url
@@ -500,18 +501,22 @@ class FacebookAdsLibraryDriver:
 
             return None
 
-        self.page.on("response", handle_response)
-
-        try:
-            response = await self.page.goto(fb_ad_url, wait_until="load", timeout=60000)
-            if not response or not response.ok:
-                print(f"[❌] Page.goto failed or returned non-OK: {response.status if response else 'No response'}")
-                return None, None, None
-        except Exception as e:
-            print(f"[❌] Exception during page.goto: {e}")
+        if not is_snapshot_url_valid(fb_ad_url):
+            print(f"[❌] Snapshot URL is not accessible: {fb_ad_url}")
             return None, None, None
 
-        await self.page.wait_for_timeout(1500)
+        self.page.on("response", handle_response)
+
+        for attempt in range(2):
+            try:
+                response = await self.page.goto(fb_ad_url, wait_until="domcontentloaded", timeout=60000)
+                if response and response.ok:
+                    break
+            except Exception as e:
+                print(f"[❌] goto failed on attempt {attempt + 1}: {e}")
+                await self.page.wait_for_timeout(1000)
+        else:
+            return None, None, None
 
         try:
             button = await self.page.query_selector('role=button')
