@@ -8,7 +8,7 @@ from typing import List, Optional, Tuple, Dict, Any
 import hashlib
 from googletrans import Translator
 
-from .const import *
+from const import *
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -190,8 +190,8 @@ class FacebookAdsLibraryDriver:
 
         # Add all combinations from NICHE_KEYWORDS_COMBINATIONS for each relevant niche
         for i, combo in enumerate(NICHE_KEYWORDS_COMBINATIONS.get(niche)):
-            term_string = " | ".join(combo)
-            if keyword: term_string += f" | {keyword}"
+            term_string = ''.join([f"%E2%A0%80{word}%20" for word in combo])
+            if keyword: term_string += f" %E2%A0%80{keyword}%20"
             generated_terms.append(term_string)
 
         current_combination_index = start_combination_index
@@ -229,6 +229,7 @@ class FacebookAdsLibraryDriver:
             ad: dict,
             placements: Optional[List[str]] = None
     ) -> Optional[Dict[str, Any]]:
+        is_commercial = False
         EXCLUDED_TITLE = "This content was removed because it didn't follow our Advertising Standards."
         ad_id = ad.get("id")
 
@@ -285,8 +286,6 @@ class FacebookAdsLibraryDriver:
                     detected_lang_code = detected_lang_obj.lang
 
                     logging.info(f"Ad ID {ad_id}: Detected language: {detected_lang_code}")
-
-                    # Перекладаємо на англійську, якщо мова не англійська
                     if detected_lang_code != 'en':
                         translated_text_obj = await self.translator.translate(text=full_text_content, dest='en')
                         if translated_text_obj and translated_text_obj.text:
@@ -300,14 +299,12 @@ class FacebookAdsLibraryDriver:
                 except Exception as translate_e:
                     logging.error(
                         f"Ad ID {ad_id}: Error during language detection or translation: {translate_e}. Using original content for check.")
-                    # Якщо переклад не вдався, продовжуємо з оригінальним текстом
                     translated_full_text_content = full_text_content
             else:
                 logging.info(f"Ad ID {ad_id}: No full text content to translate.")
 
-            # Перевіряємо наявність англійських комерційних слів у (можливо) перекладеному тексті
-            is_commercial = any(word in translated_full_text_content for word in COMMERCIAL_KEYWORDS)
-
+            matched_word = next((word for word in COMMERCIAL_KEYWORDS if word in translated_full_text_content), None)
+            if matched_word: is_commercial = True
             logging.info(f"Ad ID {ad_id}: Is commercial (based on English keywords): {is_commercial}")
 
             if not is_commercial:
@@ -324,7 +321,8 @@ class FacebookAdsLibraryDriver:
                 "raw_ad_data": ad,
                 "type": ad.get("ad_creative_media_type"),
                 "page_id": ad.get("page_id"),
-                "media_url": await self.extract_media_from_network(fb_ad_url=snapshot_url)
+                "media_url": await self.extract_media_from_network(fb_ad_url=snapshot_url),
+                "button": matched_word
             }
         except Exception as e:
             logging.exception(f"Unexpected error in _format_ad for ad ID {ad.get('id')}: {e}")
@@ -464,7 +462,7 @@ class FacebookAdsLibraryDriver:
 
         async def handle_response(response):
             url = response.url
-            if re.search(r'\.(mp4|jpg|jpeg|png)', url) and "fbcdn.net" in url:
+            if re.search(r'\.(mp4|jpg|jpeg|png|play|app|market|store)', url) and "fbcdn.net" in url:
                 media_urls.append(url)
 
         def choose_best_media(sources: list[str]) -> str | None:
@@ -516,7 +514,7 @@ class FacebookAdsLibraryDriver:
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BO665WfsiYFltEONDSwZCpGjflXdgHLBxbYzoaVaB1pOgsSPRDO8VMiEBBi6kZA8gZBBtAis8OZCztfnxQf9uorLOevckOTs2se4oM0FZCLkAm5SIGTHZCCFmXkWG8If8r9nck4yPTeGWAJjYzq3iPzKUDyoGhuZAUzuccZBl5CR6PLZCn4OxvO4t1ZAxVDznfxj2oVrUZAsjFI4c7cGXXmLuEFDCZBbGGJHSyAZDZD",
+            access_token="EAAKCNpvlGQ8BO6BhvPxpHM8CbXnHZC1rZCVshuCFzsEBYTm6xnI89lvMafIyHM7IZC6oSNkGqrEWzc8FYTXvCbwbtu6YApxExre7Piq1c4Shj3ZAU2RnKxWvI0Ha8P4x8Kf2eHrmcYf9LjBYLZB7AerLRJEaZA5bhsMnEAWGFDeFrI1w0RAL6QntvFcvFJZBFglHg3MKRIOt473zYZBsuZCA5ROAkQd3CGRH7y1bxJZBTuLwZDZD",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"
