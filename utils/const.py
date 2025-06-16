@@ -1,7 +1,7 @@
 CONTENT_CHAR_LIMIT = 3000
 
 COMMERCIAL_KEYWORDS = {
-    "download", "install", "app", "play", "register", "start", "learn more"
+    "download", "install", "app", "learn more"
 }
 
 COUNTRY_TO_LANG_CODE = {

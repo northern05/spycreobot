@@ -6,9 +6,9 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import List, Optional, Tuple, Dict, Any
 import hashlib
-from googletrans import Translator
+from urllib.parse import urlparse, parse_qs, unquote
 
-from .const import *
+from const import *
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -30,8 +30,6 @@ class FacebookAdsLibraryDriver:
         self.page = None
         self.browser = None
         self.playwright = None
-
-        self.translator = Translator()
 
     async def init_playwright(self):
         self.playwright = await async_playwright().start()
@@ -230,6 +228,12 @@ class FacebookAdsLibraryDriver:
             placements: Optional[List[str]] = None
     ) -> Optional[Dict[str, Any]]:
         is_commercial = False
+
+        title = ad.get("ad_creative_link_titles", [""])[0] if ad.get("ad_creative_link_titles") else ""
+        description = ad.get("ad_creative_link_descriptions", [""])[0] if ad.get(
+            "ad_creative_link_descriptions") else ""
+        body = ad.get("ad_creative_bodies", [""])[0] if ad.get("ad_creative_bodies") else ""
+
         EXCLUDED_TITLE = "This content was removed because it didn't follow our Advertising Standards."
         ad_id = ad.get("id")
 
@@ -241,7 +245,6 @@ class FacebookAdsLibraryDriver:
             logging.warning(f"Ad snapshot URL is missing for ad ID {ad_id}, skipping ad.")
             return None
         try:
-            title = ad.get("ad_creative_link_titles", [""])[0] if ad.get("ad_creative_link_titles") else ""
             if EXCLUDED_TITLE in title:
                 logging.info(f"Excluding ad ID {ad.get('id')} due to removed content title.")
                 return None
@@ -269,47 +272,18 @@ class FacebookAdsLibraryDriver:
             days_running = (end_dt - start_dt).days if start_dt and end_dt else 0
             if days_running < 0: days_running = 0
 
-            description = ad.get("ad_creative_link_descriptions", [""])[0] if ad.get(
-                "ad_creative_link_descriptions") else ""
-            body = ad.get("ad_creative_bodies", [""])[0] if ad.get("ad_creative_bodies") else ""
             if len(body) >= CONTENT_CHAR_LIMIT:
                 logging.info(
                     f"Excluding ad ID {ad.get('id')} due to body length ({len(body)} >= {CONTENT_CHAR_LIMIT}).")
                 return None
 
-            full_text_content = (title + " " + description + " " + body).lower()
-            translated_full_text_content = full_text_content  # За замовчуванням, якщо переклад не потрібен або невдалий
+            media_url, app_url, cta_text = await self.extract_media_from_network(fb_ad_url=snapshot_url)
+            if not app_url or not any(d in app_url for d in ("play.google", "apps.apple", "pwa")): return None
 
-            if full_text_content.strip():  # Перевіряємо, чи є текст для перекладу
-                try:
-                    detected_lang_obj = await self.translator.detect(text=full_text_content)
-                    detected_lang_code = detected_lang_obj.lang
-
-                    logging.info(f"Ad ID {ad_id}: Detected language: {detected_lang_code}")
-                    if detected_lang_code != 'en':
-                        translated_text_obj = await self.translator.translate(text=full_text_content, dest='en')
-                        if translated_text_obj and translated_text_obj.text:
-                            translated_full_text_content = translated_text_obj.text.lower()
-                            logging.info(f"Ad ID {ad_id}: Translated from {detected_lang_code} to English.")
-                        else:
-                            logging.warning(f"Ad ID {ad_id}: Could not translate full_text_content.")
-                    else:
-                        logging.info(f"Ad ID {ad_id}: Content already in English.")
-
-                except Exception as translate_e:
-                    logging.error(
-                        f"Ad ID {ad_id}: Error during language detection or translation: {translate_e}. Using original content for check.")
-                    translated_full_text_content = full_text_content
-            else:
-                logging.info(f"Ad ID {ad_id}: No full text content to translate.")
-
-            matched_word = next((word for word in COMMERCIAL_KEYWORDS if word in translated_full_text_content), None)
-            if matched_word: is_commercial = True
-            logging.info(f"Ad ID {ad_id}: Is commercial (based on English keywords): {is_commercial}")
-
-            if not is_commercial:
-                logging.info(f"Excluding ad ID {ad_id} as non-commercial (no relevant English keywords detected).")
-                return None
+            try:
+                cta_text = cta_text.encode('latin1').decode('utf-8')
+            except Exception:
+                pass
             return {
                 "id": ad_id,
                 "title": title,
@@ -321,8 +295,9 @@ class FacebookAdsLibraryDriver:
                 "raw_ad_data": ad,
                 "type": ad.get("ad_creative_media_type"),
                 "page_id": ad.get("page_id"),
-                "media_url": await self.extract_media_from_network(fb_ad_url=snapshot_url),
-                "button": matched_word
+                "media_url": media_url,
+                "app_url": app_url,
+                "button": cta_text,
             }
         except Exception as e:
             logging.exception(f"Unexpected error in _format_ad for ad ID {ad.get('id')}: {e}")
@@ -457,13 +432,32 @@ class FacebookAdsLibraryDriver:
 
         return emoji_pattern.sub(r'', text)
 
-    async def extract_media_from_network(self, fb_ad_url: str) -> str | None:
+    async def extract_media_from_network(self, fb_ad_url: str) -> tuple[str | None, str | None, str | None]:
         media_urls = []
+        app_links = []
+        cta_text = None
 
         async def handle_response(response):
             url = response.url
-            if re.search(r'\.(mp4|jpg|jpeg|png|play|app|market|store)', url) and "fbcdn.net" in url:
+
+            if "l.facebook.com/l.php" in url:
+                url = extract_final_url(url)
+
+            if "fbcdn.net" in url and re.search(r'\.(mp4|jpg|jpeg|png)', url):
                 media_urls.append(url)
+
+            if any(domain in url for domain in ["play.google.com", "apps.apple.com", "app.adjust.com"]):
+                app_links.append(url)
+
+        def extract_final_url(fb_link: str) -> str:
+            try:
+                parsed = urlparse(fb_link)
+                query = parse_qs(parsed.query)
+                if "u" in query:
+                    return unquote(query["u"][0])
+                return fb_link
+            except Exception:
+                return fb_link
 
         def choose_best_media(sources: list[str]) -> str | None:
             def is_valid_video(url):
@@ -474,47 +468,46 @@ class FacebookAdsLibraryDriver:
                                  url) and "fbcdn.net" in url and "s60x60" not in url and "static" not in url
 
             def extract_size_score(url: str) -> int:
-                # s640x640 → площа 640*640 = 409600
                 match = re.search(r's(\d+)x(\d+)', url)
-                if match:
-                    return int(match.group(1)) * int(match.group(2))
-                return 0
+                return int(match.group(1)) * int(match.group(2)) if match else 0
 
-            # 🔍 Всі відео
-            video_urls = list(filter(is_valid_video, sources))
-            if video_urls:
-                # Пріоритет: відео з найбільшою довжиною URL (як проксі на розмір)
-                video_urls.sort(key=len, reverse=True)
-                best_video = video_urls[0]
-                return best_video
-
-            # 🖼 Всі зображення
-            image_urls = list(filter(is_valid_image, sources))
-            if image_urls:
-                # Пріоритет: зображення з найбільшою вказаною роздільною здатністю
-                image_urls.sort(key=extract_size_score, reverse=True)
-                best_image = image_urls[0]
-                return best_image
+            videos = list(filter(is_valid_video, sources))
+            if videos:
+                videos.sort(key=len, reverse=True)
+                return videos[0]
+            images = list(filter(is_valid_image, sources))
+            if images:
+                images.sort(key=extract_size_score, reverse=True)
+                return images[0]
             return None
 
         self.page.on("response", handle_response)
 
         await self.page.goto(fb_ad_url)
-        await self.page.wait_for_timeout(50)
+        await self.page.wait_for_timeout(100)
 
-        # await browser.close()
+        decoded = None
+        links = await self.page.eval_on_selector_all("a", "els => els.map(el => el.href)")
+        for link in links:
+            if "l.facebook.com/l.php?u=" in link:
+                decoded = extract_final_url(link)
 
-        if media_urls:
-            best_media = choose_best_media(media_urls)
-            return best_media
-        else:
-            return None
+        try:
+            button = await self.page.query_selector('role=button')
+            if button:
+                cta_text = await button.inner_text()
+        except Exception as e:
+            print(f"[⚠️] CTA parsing error: {e}")
+
+        best_media = choose_best_media(media_urls)
+
+        return best_media, decoded, cta_text
 
 
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BO7hABNK0POIncEZAZAIg2XtrZCJjyPlZB6LOw1UI2WZB668EzPHriHCGOVpFNi3cjl7ZADHzoPDiXtC8b7hrxyq4iXZC1wZBLw8WDK7ASlhaSZBPmS5kHXN13dZA8LecPIzXVn0ZBNuecusDsqF9UfpIZCGIaESIsVGgPNUS4gkSRcLZAFo5cOz44lvLoO3UZAHPiewtXqIuqmiM4nh0dGzbdQ7QKoR5DmUEIfhwZDZD",
+            access_token="EAAKCNpvlGQ8BO52jKSCnYZBF0SkFJChLJDUOLnbZBQg9ZB2dKDLtgZAAE31eXE7iRRsAjtBq17cqyFeuvBb5o0BzEto2qbgP4RGaTi9D4tZCmwfLzlRjMs6j1DNjSgpqiFPWv56JAj5jrm5Ue0vGtWLlbZC7d8kWOgxl0OHekl2LK0pBphxx3ZA4PoujQRxIHjZCqPm1x3zuybKE4qZAaiIUq6xPDdQWDniGHZCU8EPiAotgZDZD",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"
@@ -546,6 +539,7 @@ if __name__ == '__main__':
                 print(f"  Days Running: {ad.get('days_running')}")
                 print(f"  Type: {ad.get('')}")
                 print(f"  Media_url {ad.get('media_url')}")
+                print(f"  Button: {ad.get('button')}")
                 print("-" * 20)
             print(f"Next search cursor for Page 1: {'exists' if search_cursor_page1 else 'None'}")
 
