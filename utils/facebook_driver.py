@@ -500,7 +500,7 @@ class FacebookAdsLibraryDriver:
 
             return None
 
-        await self.page.on("response", handle_response)
+        self.page.on("response", handle_response)
 
         try:
             response = await self.page.goto(fb_ad_url, wait_until="load", timeout=60000)
