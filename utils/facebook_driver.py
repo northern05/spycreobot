@@ -37,6 +37,22 @@ class FacebookAdsLibraryDriver:
         context = await self.browser.new_context()
         self.page = await context.new_page()
 
+    async def new_browser(self):
+        context = await self.browser.new_context(
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/114.0.0.0 Safari/537.36"
+            ),
+            locale="en-US",
+            viewport={"width": 1280, "height": 720}
+        )
+        await context.set_extra_http_headers({
+            "Referer": "https://www.facebook.com/",
+            "Accept-Language": "en-US,en;q=0.9"
+        })
+        self.page = await context.new_page()
+
     async def exchange_token(self) -> str:
         url = "https://graph.facebook.com/v19.0/oauth/access_token"
         params = {
@@ -436,6 +452,7 @@ class FacebookAdsLibraryDriver:
         media_urls = []
         app_links = []
         cta_text = None
+        decoded_app_link = None
 
         async def handle_response(response):
             url = response.url
@@ -475,33 +492,53 @@ class FacebookAdsLibraryDriver:
             if videos:
                 videos.sort(key=len, reverse=True)
                 return videos[0]
+
             images = list(filter(is_valid_image, sources))
             if images:
                 images.sort(key=extract_size_score, reverse=True)
                 return images[0]
+
             return None
 
-        self.page.on("response", handle_response)
+        await self.page.on("response", handle_response)
 
-        await self.page.goto(fb_ad_url, wait_until="domcontentloaded", timeout=60000)
-        await self.page.wait_for_timeout(1000)
+        try:
+            response = await self.page.goto(fb_ad_url, wait_until="load", timeout=60000)
+            if not response or not response.ok:
+                print(f"[❌] Page.goto failed or returned non-OK: {response.status if response else 'No response'}")
+                return None, None, None
+        except Exception as e:
+            print(f"[❌] Exception during page.goto: {e}")
+            return None, None, None
 
-        decoded = None
-        links = await self.page.eval_on_selector_all("a", "els => els.map(el => el.href)")
-        for link in links:
-            if "l.facebook.com/l.php?u=" in link:
-                decoded = extract_final_url(link)
+        await self.page.wait_for_timeout(1500)
 
         try:
             button = await self.page.query_selector('role=button')
             if button:
                 cta_text = await button.inner_text()
+                if cta_text:
+                    try:
+                        cta_text = cta_text.encode('latin1').decode('utf-8')
+                    except Exception:
+                        pass
         except Exception as e:
             print(f"[⚠️] CTA parsing error: {e}")
 
+        try:
+            links = await self.page.eval_on_selector_all("a", "els => els.map(el => el.href)")
+            for link in links:
+                if "l.facebook.com/l.php?u=" in link:
+                    decoded = extract_final_url(link)
+                    if any(domain in decoded for domain in ["play.google.com", "apps.apple.com", "adjust.com"]):
+                        decoded_app_link = decoded
+                        break
+        except Exception as e:
+            print(f"[⚠️] Failed to eval links: {e}")
+
         best_media = choose_best_media(media_urls)
 
-        return best_media, decoded, cta_text
+        return best_media, decoded_app_link, cta_text
 
 
 if __name__ == '__main__':
