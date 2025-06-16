@@ -519,16 +519,14 @@ class FacebookAdsLibraryDriver:
             return None, None, None
 
         try:
-            button = await self.page.query_selector('role=button')
-            if button:
-                cta_text = await button.inner_text()
-                if cta_text:
-                    try:
-                        cta_text = cta_text.encode('latin1').decode('utf-8')
-                    except Exception:
-                        pass
+            button = await self.page.eval_on_selector(
+                'role=button',
+                'el => el.innerText'
+            )
+            cta_text = await button.inner_text() if button else None
         except Exception as e:
             print(f"[⚠️] CTA parsing error: {e}")
+            cta_text = None
 
         try:
             links = await self.page.eval_on_selector_all("a", "els => els.map(el => el.href)")
