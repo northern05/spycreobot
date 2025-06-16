@@ -30,3 +30,17 @@ async def get_all_creatives(
 async def get_gif():
     gif_path = Path("gif_waiting.gif")
     return gif_path
+
+
+@router.get(
+    "cash_ads",
+    status_code=status.HTTP_200_OK,
+    response_model=dict,
+)
+async def get_all_creatives(
+        result: dict = Depends(dependencies.update_all_creatives)
+):
+    """
+    Endpoint to cash all ads
+    """
+    return result

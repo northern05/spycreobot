@@ -18,6 +18,7 @@ async def process_users_credits(
         telegram_id: str,
         session: AsyncSession = Depends(db_helper.scoped_session_dependency)
 ):
+    if int(telegram_id) == 0: return True
     users_credits = await crud.get_users_credits_by_telegram_id(telegram_id=telegram_id, session=session)
     if users_credits.credits <= 0:
         await session.close()
