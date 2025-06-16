@@ -638,42 +638,37 @@ async def send_creos(
                     InlineKeyboardButton(text="Get similar", callback_data=f"get_similar:{page_id}")
                 ]]
             )
+            caption = f"Placements: {''.join(platforms_mapping.get(p) for p in platforms)}\n"
+            f"Days running: {days_running}\n"
+
+            caption+=f"Button: {button.upper()}" if button else ""
             try:
                 if media_url and "video" in media_url:
                     await bot.send_video(
                         chat_id=message.chat.id,
                         video=media_url,
                         reply_markup=keyboard,
-                        caption=f"#VIDEO\n"
-                                f"Placements: {''.join(platforms_mapping.get(p) for p in platforms)}\n"
-                                f"Days running: {days_running}\n"
-                                f"Button: {button.upper()}"
+                        caption=f"#VIDEO\n" + caption
                     )
                 elif media_url and any(ext in media_url for ext in [".jpg", ".jpeg", ".png"]):
                     await bot.send_photo(
                         chat_id=message.chat.id,
                         photo=media_url,
                         reply_markup=keyboard,
-                        caption=f"#IMAGE\n"
-                                f"Placements: {''.join(platforms_mapping.get(p) for p in platforms)}\n"
-                                f"Days running: {days_running}\n"
-                                f"Button: {button.upper()}"
+                        caption=f"#IMAGE\n" + caption
                     )
                 else:
                     # fallback якщо немає медіа, лише лінк
                     await bot.send_message(
                         chat_id=message.chat.id,
-                        text=f"🔗 [Open media]({url})\n"
-                             f"Placements: {''.join(platforms_mapping.get(p) for p in platforms)}\n"
-                             f"Days running: {days_running}\n"
-                             f"Button: {button.upper()}",
+                        text=f"🔗 [Open media]({url})\n" + caption,
                         parse_mode="Markdown",
                         reply_markup=keyboard
                     )
             except exceptions.TelegramBadRequest as e:
                 await bot.send_message(
                     chat_id=message.chat.id,
-                    text=f"🔗 Can't load media, but you can open in browser: [Open media]({url})\n \nDays running: {days_running}",
+                    text=f"🔗 Can't load media, but you can open in browser: [Open media]({url})\n" + caption,
                     parse_mode="Markdown",
                     reply_markup=keyboard
                 )
@@ -689,10 +684,10 @@ async def send_creos(
                                  [InlineKeyboardButton(text="Pin search", callback_data="pin_search")]]
             )
         await message.answer("Do you want to get next 10 creatives?", reply_markup=keyboard)
+
     else:
         await message.answer("Something went wrong!")
         await main_menu(event=message)
-
 
 if __name__ == "__main__":
     dp.run_polling(bot)
