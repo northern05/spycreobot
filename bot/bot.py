@@ -24,6 +24,12 @@ dp.include_router(tg_router)
 
 user_selection_state = {}
 
+platforms_mapping = {"facebook": "FB",
+                     "instagram": "Inst",
+                     "threads": "Threads",
+                     "audience_network": "AM",
+                     "messenger": "MSG"}
+
 
 @tg_router.startup()
 async def on_startup(bot: Bot):
@@ -71,7 +77,7 @@ async def handle_command_callback(callback: types.CallbackQuery):
         "cmd_start": cmd_start,
         "cmd_main_menu": main_menu,
         "cmd_add_wallet": cmd_start,
-        "cmd_get_creatives": ask_niche_creatives,
+        # "cmd_get_creatives": ask_niche_creatives,
         "cmd_credits_menu": show_credits_menu,
         "cmd_help": show_commands,
     }
@@ -233,7 +239,7 @@ async def get_creatives(callback: types.CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
     # niche = callback.data.split(":")[1]
     await state.update_data({"niche": "gambling"})
-    await state.update_data({"placements": ["instagram", "facebook"]})
+    await state.update_data({"placements": ["instagram", "facebook", "audience_network", "threads", "messenger"]})
     user_selection_state[user_id] = {
         "niche": "gambling",
         "placements": []
@@ -623,7 +629,9 @@ async def send_creos(
             url = creative.get('url')
             media_url = creative.get('media_url')
             page_id = creative.get("page_id")
-            days_running = creative.get("days_running")
+            days_running: int = creative.get("days_running")
+            platforms: list = creative.get("platforms")
+            button: str = creative.get("button")
             keyboard = InlineKeyboardMarkup(
                 inline_keyboard=[[
                     InlineKeyboardButton(text="🔗 Open Ad in Browser", url=url),
@@ -636,20 +644,29 @@ async def send_creos(
                         chat_id=message.chat.id,
                         video=media_url,
                         reply_markup=keyboard,
-                        caption=f"#VIDEO\n\nDays running: {days_running}"
+                        caption=f"#VIDEO\n"
+                                f"Placements: {''.join(platforms_mapping.get(p) for p in platforms)}\n"
+                                f"Days running: {days_running}\n"
+                                f"Button: {button.upper()}"
                     )
                 elif media_url and any(ext in media_url for ext in [".jpg", ".jpeg", ".png"]):
                     await bot.send_photo(
                         chat_id=message.chat.id,
                         photo=media_url,
                         reply_markup=keyboard,
-                        caption=f"#IMAGE\n\nDays running: {days_running}"
+                        caption=f"#IMAGE\n"
+                                f"Placements: {''.join(platforms_mapping.get(p) for p in platforms)}\n"
+                                f"Days running: {days_running}\n"
+                                f"Button: {button.upper()}"
                     )
                 else:
                     # fallback якщо немає медіа, лише лінк
                     await bot.send_message(
                         chat_id=message.chat.id,
-                        text=f"🔗 [Open media]({url})\n \nDays running: {days_running}",
+                        text=f"🔗 [Open media]({url})\n"
+                             f"Placements: {''.join(platforms_mapping.get(p) for p in platforms)}\n"
+                             f"Days running: {days_running}\n"
+                             f"Button: {button.upper()}",
                         parse_mode="Markdown",
                         reply_markup=keyboard
                     )
