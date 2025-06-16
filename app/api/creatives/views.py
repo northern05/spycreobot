@@ -33,7 +33,7 @@ async def get_gif():
 
 
 @router.get(
-    "cash_ads",
+    "/cash_ads",
     status_code=status.HTTP_200_OK,
     response_model=dict,
 )
