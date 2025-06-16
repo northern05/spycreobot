@@ -519,11 +519,26 @@ class FacebookAdsLibraryDriver:
             return None, None, None
 
         try:
-            button = await self.page.eval_on_selector(
-                'role=button',
-                'el => el.innerText'
+            possible_ctas = await self.page.eval_on_selector_all(
+                'div',
+                '''
+                els => els
+                    .map(el => el.innerText)
+                    .filter(t => t && t.length > 2 && t.length <= 30)
+                '''
             )
-            cta_text = await button.inner_text() if button else None
+            CTA_KEYWORDS = [
+                "install", "play", "start", "launch", "download", "завантажити", "грати", "установить",
+                "перейти", "відкрити", "почати", "спробувати"
+            ]
+
+            cta_text = None
+            for t in possible_ctas:
+                t_clean = t.strip().lower()
+                if any(k in t_clean for k in CTA_KEYWORDS):
+                    cta_text = t.strip()
+                    break
+
         except Exception as e:
             print(f"[⚠️] CTA parsing error: {e}")
             cta_text = None
@@ -547,7 +562,7 @@ class FacebookAdsLibraryDriver:
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BO52jKSCnYZBF0SkFJChLJDUOLnbZBQg9ZB2dKDLtgZAAE31eXE7iRRsAjtBq17cqyFeuvBb5o0BzEto2qbgP4RGaTi9D4tZCmwfLzlRjMs6j1DNjSgpqiFPWv56JAj5jrm5Ue0vGtWLlbZC7d8kWOgxl0OHekl2LK0pBphxx3ZA4PoujQRxIHjZCqPm1x3zuybKE4qZAaiIUq6xPDdQWDniGHZCU8EPiAotgZDZD",
+            access_token="EAAKCNpvlGQ8BO2vuofL2JYZBd0T3kH2uvKWXGtfxZCTt2KO1BQ5BLekF6u9JdetfoGlcfazWAE4tZA2ezYuQZBoe1T3B3tNf2GMcw9C0LUrA0lPXMeah114CV1JtrXjX1mQC8nAURatnGZBG8CdMW0ulkmZBYLaReLNebSU1BmG9kl7y8dQmHZBA8kv68lMTM1tPaUWFUFPTA65PRZAkmRDFa2CmvmX4vAdt4jUB7EZB3mgZDZD",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"
