@@ -8,7 +8,7 @@ from typing import List, Optional, Tuple, Dict, Any
 import hashlib
 from urllib.parse import urlparse, parse_qs, unquote
 
-from const import *
+from utils.const import *
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
