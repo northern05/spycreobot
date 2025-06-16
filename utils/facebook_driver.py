@@ -514,7 +514,7 @@ class FacebookAdsLibraryDriver:
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BO6BhvPxpHM8CbXnHZC1rZCVshuCFzsEBYTm6xnI89lvMafIyHM7IZC6oSNkGqrEWzc8FYTXvCbwbtu6YApxExre7Piq1c4Shj3ZAU2RnKxWvI0Ha8P4x8Kf2eHrmcYf9LjBYLZB7AerLRJEaZA5bhsMnEAWGFDeFrI1w0RAL6QntvFcvFJZBFglHg3MKRIOt473zYZBsuZCA5ROAkQd3CGRH7y1bxJZBTuLwZDZD",
+            access_token="EAAKCNpvlGQ8BO7hABNK0POIncEZAZAIg2XtrZCJjyPlZB6LOw1UI2WZB668EzPHriHCGOVpFNi3cjl7ZADHzoPDiXtC8b7hrxyq4iXZC1wZBLw8WDK7ASlhaSZBPmS5kHXN13dZA8LecPIzXVn0ZBNuecusDsqF9UfpIZCGIaESIsVGgPNUS4gkSRcLZAFo5cOz44lvLoO3UZAHPiewtXqIuqmiM4nh0dGzbdQ7QKoR5DmUEIfhwZDZD",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"

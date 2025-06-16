@@ -632,16 +632,17 @@ async def send_creos(
             days_running: int = creative.get("days_running")
             platforms: list = creative.get("platforms")
             button: str = creative.get("button")
+            title: str = creative.get("title")
             keyboard = InlineKeyboardMarkup(
                 inline_keyboard=[[
                     InlineKeyboardButton(text="🔗 Open Ad in Browser", url=url),
                     InlineKeyboardButton(text="Get similar", callback_data=f"get_similar:{page_id}")
                 ]]
             )
-            caption = f"Placements: {''.join(platforms_mapping.get(p) for p in platforms)}\n"
-            f"Days running: {days_running}\n"
-
-            caption+=f"Button: {button.upper()}" if button else ""
+            caption = f"Title: {title}\n" \
+                      f"Placements: {', '.join(platforms_mapping.get(p) for p in platforms)}\n" \
+                      f"Days running: {days_running}\n" \
+                      f"Button: {button.upper()}"
             try:
                 if media_url and "video" in media_url:
                     await bot.send_video(
@@ -688,6 +689,7 @@ async def send_creos(
     else:
         await message.answer("Something went wrong!")
         await main_menu(event=message)
+
 
 if __name__ == "__main__":
     dp.run_polling(bot)

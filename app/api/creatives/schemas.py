@@ -12,6 +12,7 @@ class CreativeBase(BaseModel):
     days_running: int
     page_id: str | None = None
     media_url: str
+    button: str
 
 
 class CreativeResponse(CreativeBase):
