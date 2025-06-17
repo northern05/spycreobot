@@ -31,7 +31,7 @@ class FacebookAdsLibraryDriver:
     async def init_playwright(self):
         playwright = await async_playwright().start()
         self.browser = await playwright.chromium.launch(
-            headless=False,
+            headless=True,
             args=['--no-sandbox', '--disable-setuid-sandbox']
         )
 
