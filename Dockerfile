@@ -1,13 +1,9 @@
-FROM python:3.11-slim
+FROM mcr.microsoft.com/playwright/python:v1.42.1-jammy
 
 WORKDIR /usr/src/app
 
-COPY . /usr/src/app/
+COPY . /usr/src/app
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends wget gnupg xvfb xauth libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2  \
-    libxss1 libasound2 libxcomposite1 libxrandr2 libgbm1 libgtk-3-0 &&  \
-    pip install --no-cache-dir --force-reinstall -r requirements.txt && \
-    playwright install --with-deps chromium &&\
-    apt-get clean &&  \
-    apt-get autoremove
+RUN pip install --no-cache-dir -r requirements.txt
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
