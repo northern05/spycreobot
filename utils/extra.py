@@ -28,7 +28,7 @@ def flatten_nested_list(nested_list):
 
 
 def cash_ads():
-    response = requests.post(url="https://affhunter.net/bot/api/v1/creatives/cash_ads")
+    response = requests.get(url="https://affhunter.net/bot/api/v1/creatives/cash_ads")
     if response.status_code == 200:
         return {"ok": True}
     else:
