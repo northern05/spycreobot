@@ -31,7 +31,7 @@ class FacebookAdsLibraryDriver:
     async def init_playwright(self):
         playwright = await async_playwright().start()
         self.browser = await playwright.chromium.launch(
-            headless=True,
+            headless=False,
             args=['--no-sandbox', '--disable-setuid-sandbox']
         )
 
@@ -41,7 +41,9 @@ class FacebookAdsLibraryDriver:
                        "(KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
             locale="en-US",
             viewport={"width": 1280, "height": 720},
-            storage_state="fb_logged_state.json"
+            storage_state="fb_logged_state.json",
+            java_script_enabled=True,
+            bypass_csp=True
         )
         await context.set_extra_http_headers({
             "Referer": "https://www.facebook.com/",

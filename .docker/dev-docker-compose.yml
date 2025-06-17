@@ -61,8 +61,9 @@ services:
       - dev
     volumes:
       - ../:/usr/src/app
+      - ../fb_logged_state.json:/usr/src/app/fb_logged_state.json
     restart: always
-    command: bash -c 'uvicorn main:app --proxy-headers --host 0.0.0.0'
+    command: bash -c 'xvfb-run uvicorn main:app --proxy-headers --host 0.0.0.0'
     depends_on:
       - postgres
       - redis

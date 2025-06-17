@@ -13,5 +13,6 @@ COPY . /usr/src/app/
 
 RUN pip install --no-cache-dir --force-reinstall -r requirements.txt && \
     playwright install --with-deps chromium &&\
+    apt-get install -y xvfb &&\
     apt-get clean &&  \
     apt-get autoremove
