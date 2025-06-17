@@ -267,8 +267,6 @@ class FacebookAdsLibraryDriver:
             ad: dict,
             placements: Optional[List[str]] = None
     ) -> Optional[Dict[str, Any]]:
-        is_commercial = False
-
         title = ad.get("ad_creative_link_titles", [""])[0] if ad.get("ad_creative_link_titles") else ""
         description = ad.get("ad_creative_link_descriptions", [""])[0] if ad.get(
             "ad_creative_link_descriptions") else ""
@@ -318,6 +316,7 @@ class FacebookAdsLibraryDriver:
                 return None
 
             media_url, app_url, cta_text = await self.extract_media_from_network(fb_ad_url=snapshot_url)
+            logging.info(f"CREOS: {media_url}, APP: {app_url}, BUTTON: {cta_text}")
             try:
                 cta_text = cta_text.encode('latin1').decode('utf-8')
             except Exception:
