@@ -1,7 +1,46 @@
 CONTENT_CHAR_LIMIT = 3000
 
 COMMERCIAL_KEYWORDS = {
-    "download", "install", "app", "learn more"
+    # English
+    "download", "install",
+    # Ukrainian
+    "завантажити", "встановити",
+    # Russian
+    "скачать", "установить",
+    # Spanish
+    "descargar", "instalar",
+    # French
+    "télécharger", "installer",
+    # German
+    "herunterladen", "installieren",
+    # Italian
+    "scaricare", "installare",
+    # Portuguese
+    "baixar", "instalar",
+    # Polish
+    "pobrać", "zainstalować",
+    # Turkish
+    "indir", "yükle",
+    # Dutch
+    "downloaden", "installeren",
+    # Swedish
+    "ladda ner", "installera",
+    # Japanese
+    "ダウンロードする", "インストールする",
+    # Chinese (Simplified)
+    "下载", "安装",
+    # Arabic
+    "تنزيل", "تثبيت",
+    # Hindi
+    "डाउनलोड करें", "स्थापित करें",
+    # Korean
+    "다운로드", "설치하다",
+    # Indonesian
+    "unduh", "pasang",
+    # Malay
+    "muat turun", "pasang",
+    # Czech
+    "stáhnout", "nainstalovat"
 }
 
 COUNTRY_TO_LANG_CODE = {

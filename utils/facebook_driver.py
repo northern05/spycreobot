@@ -318,12 +318,12 @@ class FacebookAdsLibraryDriver:
                 return None
 
             media_url, app_url, cta_text = await self.extract_media_from_network(fb_ad_url=snapshot_url)
-            if not app_url or any(d in app_url for d in ("play.google", "apps.apple")): return None
-
             try:
                 cta_text = cta_text.encode('latin1').decode('utf-8')
             except Exception:
                 pass
+            if not app_url or not cta_text or any(d in app_url for d in ("play.google", "apps.apple")): return None
+
             return {
                 "id": ad_id,
                 "title": title,

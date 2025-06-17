@@ -642,7 +642,7 @@ async def send_creos(
             caption = f"Title: {title}\n" \
                       f"Placements: {', '.join(platforms_mapping.get(p) for p in platforms)}\n" \
                       f"Days running: {days_running}\n" \
-                      f"Button: {button.upper()}"
+                      f"Button: {button}"
             try:
                 if media_url and "video" in media_url:
                     await bot.send_video(
