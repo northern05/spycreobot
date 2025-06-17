@@ -33,7 +33,10 @@ class FacebookAdsLibraryDriver:
 
     async def init_playwright(self):
         self.playwright = await async_playwright().start()
-        self.browser = await self.playwright.chromium.launch(headless=True)
+        self.browser = await self.playwright.chromium.launch(
+            headless=True,
+            args=['--no-sandbox', '--disable-setuid-sandbox']
+        )
         context = await self.browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                        "(KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
@@ -447,18 +450,6 @@ class FacebookAdsLibraryDriver:
         cta_text = None
         decoded_app_link = None
 
-        async def handle_response(response):
-            url = response.url
-
-            if "l.facebook.com/l.php" in url:
-                url = extract_final_url(url)
-
-            if "fbcdn.net" in url and re.search(r'\.(mp4|jpg|jpeg|png)', url):
-                media_urls.append(url)
-
-            if any(domain in url for domain in ["play.google.com", "apps.apple.com", "app.adjust.com"]):
-                app_links.append(url)
-
         def extract_final_url(fb_link: str) -> str:
             try:
                 parsed = urlparse(fb_link)
@@ -482,42 +473,44 @@ class FacebookAdsLibraryDriver:
                 return ".mp4" in url and "video" in url and "fbcdn.net" in url
 
             def is_valid_image(url):
-                return re.search(r'\.(jpg|jpeg|png)',
-                                 url) and "fbcdn.net" in url and "s60x60" not in url and "static" not in url
+                return re.search(r'\.(jpg|jpeg|png)', url) and "fbcdn.net" in url and "s60x60" not in url
 
-            def extract_size_score(url: str) -> int:
-                match = re.search(r's(\d+)x(\d+)', url)
-                return int(match.group(1)) * int(match.group(2)) if match else 0
+            def extract_size_score(url):
+                return int(re.search(r's(\d+)x(\d+)', url).group(1)) * int(
+                    re.search(r's(\d+)x(\d+)', url).group(2)) if re.search(r's(\d+)x(\d+)', url) else 0
 
             videos = list(filter(is_valid_video, sources))
             if videos:
-                videos.sort(key=len, reverse=True)
-                return videos[0]
-
+                return max(videos, key=len)
             images = list(filter(is_valid_image, sources))
             if images:
-                images.sort(key=extract_size_score, reverse=True)
-                return images[0]
-
+                return max(images, key=extract_size_score)
             return None
 
+        async def handle_response(response):
+            url = response.url
+            if "l.facebook.com/l.php" in url:
+                url = extract_final_url(url)
+            if "fbcdn.net" in url and re.search(r'\.(mp4|jpg|jpeg|png)', url):
+                media_urls.append(url)
+            if any(domain in url for domain in ["play.google.com", "apps.apple.com", "app.adjust.com"]):
+                app_links.append(url)
+
+        # ❗ Перевірка перед навігацією
         if not is_snapshot_url_valid(fb_ad_url):
             print(f"[❌] Snapshot URL is not accessible: {fb_ad_url}")
             return None, None, None
 
         self.page.on("response", handle_response)
 
-        for attempt in range(2):
-            try:
-                response = await self.page.goto(fb_ad_url, wait_until="domcontentloaded", timeout=60000)
-                if response and response.ok:
-                    break
-            except Exception as e:
-                print(f"[❌] goto failed on attempt {attempt + 1}: {e}")
-                await self.page.wait_for_timeout(1000)
-        else:
+        try:
+            response = await self.page.goto(fb_ad_url, wait_until="domcontentloaded", timeout=60000)
+            await self.page.wait_for_timeout(3000)  # даємо час для JS-завантаження
+        except Exception as e:
+            print(f"[❌] Exception during page.goto: {e}")
             return None, None, None
 
+        # ⬇️ CTA пошук
         try:
             possible_ctas = await self.page.eval_on_selector_all(
                 'div',
@@ -527,22 +520,16 @@ class FacebookAdsLibraryDriver:
                     .filter(t => t && t.length > 2 && t.length <= 30)
                 '''
             )
-            CTA_KEYWORDS = [
-                "install", "play", "start", "launch", "download", "завантажити", "грати", "установить",
-                "перейти", "відкрити", "почати", "спробувати"
-            ]
-
-            cta_text = None
+            CTA_KEYWORDS = ["install", "play", "start", "launch", "download", "завантажити", "грати", "установить",
+                            "перейти", "відкрити", "почати", "спробувати"]
             for t in possible_ctas:
-                t_clean = t.strip().lower()
-                if any(k in t_clean for k in CTA_KEYWORDS):
+                if any(k in t.lower() for k in CTA_KEYWORDS):
                     cta_text = t.strip()
                     break
-
         except Exception as e:
             print(f"[⚠️] CTA parsing error: {e}")
-            cta_text = None
 
+        # ⬇️ app-link розпізнавання
         try:
             links = await self.page.eval_on_selector_all("a", "els => els.map(el => el.href)")
             for link in links:
@@ -562,7 +549,7 @@ class FacebookAdsLibraryDriver:
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BO2vuofL2JYZBd0T3kH2uvKWXGtfxZCTt2KO1BQ5BLekF6u9JdetfoGlcfazWAE4tZA2ezYuQZBoe1T3B3tNf2GMcw9C0LUrA0lPXMeah114CV1JtrXjX1mQC8nAURatnGZBG8CdMW0ulkmZBYLaReLNebSU1BmG9kl7y8dQmHZBA8kv68lMTM1tPaUWFUFPTA65PRZAkmRDFa2CmvmX4vAdt4jUB7EZB3mgZDZD",
+            access_token="EAAKCNpvlGQ8BO7JusTtmZA4UtVOTPIAJErSeVEZBlJBi8ZCVm3Ka78ZAiGQKxmyCOGcG6m6yQmMPBzZCPNDGG0CSgYIZBrzWVAGqmGXuydUrFhqslaKBbo1G49TakgXuxIlaVBfnj3KKuimKFiDSNu5f0TuZBZA3so9ZBXI6M1YlAuTGzPAjRhnwKT40v091QGX7TS2IXyQdaLwYP0rL1NwRmm1zXmceJWxQCWDk1UQHuNQZDZD",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"
