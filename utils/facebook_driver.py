@@ -40,8 +40,7 @@ class FacebookAdsLibraryDriver:
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                        "(KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
             locale="en-US",
-            viewport={"width": 1280, "height": 720},
-            storage_state="fb_logged_state.json",
+            viewport={"width": 1280, "height": 720}
         )
         await context.set_extra_http_headers({
             "Referer": "https://www.facebook.com/",
@@ -555,7 +554,7 @@ class FacebookAdsLibraryDriver:
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BO1h0nkqpff9TddMlxkZAxC7S01Do06NZCfhMClBShiPHaW2A7pi0KImGMoZAuvSYU4vlx1X1zYVxEVpQ1OZCzRuK5eb6rxoMO0YdTEjcTXZCLMyXqCrP5ZCOqDkI1JiKHfwLeW3psH7o8m3e27LA9qDtHMswQNlmHkkSc5hrd4Q4DoMfz9k6CtLfsdqSA9D5RuowZBSZAALJeLkQnZCkcvwn8jOMZAEaSHRQZDZD",
+            access_token="EAAKCNpvlGQ8BO9d3gclA72et9FTntbZCogyMcDMwfbbdTVrFkmaUa1hhoGQo9ngjE5ZBvzJQjcNWOzoQVuG9F9odblvZArk7hczpRRITBtsGZCnss5kM9CaInz6kTpKwqBQRyiu5mHuQMJYP560YZBv0PUIl8ox3winyt3qO4jeR40nYvwHiwVdyG3vZBlhvmcfD40yO0qSGpjdI1sG56imbB5ZBhSptuvgiVtw6sV0TeUZD",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"
