@@ -31,7 +31,7 @@ class FacebookAdsLibraryDriver:
     async def init_playwright(self):
         playwright = await async_playwright().start()
         self.browser = await playwright.chromium.launch(
-            headless=True,
+            headless=False,
             args=['--no-sandbox', '--disable-setuid-sandbox']
         )
 
@@ -508,8 +508,10 @@ class FacebookAdsLibraryDriver:
             context = await self.new_playwright_context()
             page = await context.new_page()
             page.on("response", handle_response)
-            await page.goto(fb_ad_url, wait_until="domcontentloaded", timeout=60000)
-            await page.wait_for_timeout(150)
+            await page.goto(fb_ad_url, wait_until="networkidle", timeout=90000)
+            html = await page.content()
+            print(html)
+            await page.wait_for_timeout(3000)
         except Exception as e:
             print(f"[❌] Exception during page.goto: {e}")
             return None, None, None
