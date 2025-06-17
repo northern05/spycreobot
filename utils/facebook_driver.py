@@ -26,17 +26,16 @@ class FacebookAdsLibraryDriver:
         self.client = httpx.AsyncClient(timeout=30)
         self.app_id = app_id
         self.app_secret = app_secret
-
-        self.page = None
         self.browser = None
-        self.playwright = None
 
     async def init_playwright(self):
-        self.playwright = await async_playwright().start()
-        self.browser = await self.playwright.chromium.launch(
+        playwright = await async_playwright().start()
+        self.browser = await playwright.chromium.launch(
             headless=True,
             args=['--no-sandbox', '--disable-setuid-sandbox']
         )
+
+    async def new_playwright_context(self):
         context = await self.browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                        "(KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
@@ -47,7 +46,7 @@ class FacebookAdsLibraryDriver:
             "Referer": "https://www.facebook.com/",
             "Accept-Language": "en-US,en;q=0.9"
         })
-        self.page = await context.new_page()
+        return context
 
     async def exchange_token(self) -> str:
         url = "https://graph.facebook.com/v19.0/oauth/access_token"
@@ -85,6 +84,35 @@ class FacebookAdsLibraryDriver:
             "half_year": timedelta(days=180)  # Changed 'halfyear' to 'half_year' for consistency
         }.get(period, timedelta(days=7))
         return (today - delta).strftime("%Y-%m-%d")
+
+    def is_commercial_tracking_link(self, url: str) -> bool:
+        try:
+            parsed = urlparse(url)
+            domain = parsed.netloc.lower()
+            full_url = url.lower()
+
+            forbidden_domains = [
+                "facebook.com", "l.facebook.com", "play.google.com", "apps.apple.com",
+                "app.adjust.com", "doubleclick.net"
+            ]
+            if any(d in domain for d in forbidden_domains):
+                return False
+
+            suspicious_tlds = [".shop", ".online", ".click", ".quest", ".vip", ".xyz", ".life"]
+            if not any(domain.endswith(tld) for tld in suspicious_tlds):
+                return False
+
+            tracking_keywords = [
+                "sub_id", "sub1", "sub2", "lead_id", "campaign.name", "ad.id",
+                "adset.name", "placement", "pixel", "fbclid", "open_pwa", "key="
+            ]
+            if not any(kw in full_url for kw in tracking_keywords):
+                return False
+
+            return True
+        except Exception as e:
+            print(f"[⚠️] Error checking URL: {e}")
+            return False
 
     async def _fetch_ads(self, params: dict) -> Dict[str, Any]:
         retries = 3
@@ -290,7 +318,7 @@ class FacebookAdsLibraryDriver:
                 return None
 
             media_url, app_url, cta_text = await self.extract_media_from_network(fb_ad_url=snapshot_url)
-            if not app_url or not any(d in app_url for d in ("play.google", "apps.apple", "pwa")): return None
+            if not app_url or any(d in app_url for d in ("play.google", "apps.apple")): return None
 
             try:
                 cta_text = cta_text.encode('latin1').decode('utf-8')
@@ -426,12 +454,6 @@ class FacebookAdsLibraryDriver:
         return all_collected_ads, next_search_cursor
 
     def remove_emojis_regex(self, text):
-        """
-        Видаляє емодзі з тексту за допомогою регулярних виразів.
-        Використовує Unicode-діапазони для емодзі.
-        """
-        # Найбільш поширені Unicode-діапазони емодзі та символів, пов'язаних з ними.
-        # Це може не охопити всі можливі емодзі, оскільки Unicode постійно розширюється.
         emoji_pattern = re.compile(
             "["
             "\U0001F600-\U0001F64F"  # emoticons
@@ -446,7 +468,6 @@ class FacebookAdsLibraryDriver:
 
     async def extract_media_from_network(self, fb_ad_url: str) -> tuple[str | None, str | None, str | None]:
         media_urls = []
-        app_links = []
         cta_text = None
         decoded_app_link = None
 
@@ -460,20 +481,10 @@ class FacebookAdsLibraryDriver:
             except Exception:
                 return fb_link
 
-        def is_snapshot_url_valid(url: str) -> bool:
-            try:
-                r = httpx.head(url, timeout=10, follow_redirects=True)
-                return r.status_code == 200
-            except Exception as e:
-                print(f"[HEAD check failed] {e}")
-                return False
-
         def choose_best_media(sources: list[str]) -> str | None:
-            def is_valid_video(url):
-                return ".mp4" in url and "video" in url and "fbcdn.net" in url
+            def is_valid_video(url): return ".mp4" in url and "video" in url and "fbcdn.net" in url
 
-            def is_valid_image(url):
-                return re.search(r'\.(jpg|jpeg|png)', url) and "fbcdn.net" in url and "s60x60" not in url
+            def is_valid_image(url): return re.search(r'\.(jpg|jpeg|png)', url) and "fbcdn.net" in url and "s60x60" not in url
 
             def extract_size_score(url):
                 return int(re.search(r's(\d+)x(\d+)', url).group(1)) * int(
@@ -493,26 +504,19 @@ class FacebookAdsLibraryDriver:
                 url = extract_final_url(url)
             if "fbcdn.net" in url and re.search(r'\.(mp4|jpg|jpeg|png)', url):
                 media_urls.append(url)
-            if any(domain in url for domain in ["play.google.com", "apps.apple.com", "app.adjust.com"]):
-                app_links.append(url)
-
-        # ❗ Перевірка перед навігацією
-        if not is_snapshot_url_valid(fb_ad_url):
-            print(f"[❌] Snapshot URL is not accessible: {fb_ad_url}")
-            return None, None, None
-
-        self.page.on("response", handle_response)
 
         try:
-            response = await self.page.goto(fb_ad_url, wait_until="domcontentloaded", timeout=60000)
-            await self.page.wait_for_timeout(3000)  # даємо час для JS-завантаження
+            context = await self.new_playwright_context()
+            page = await context.new_page()
+            page.on("response", handle_response)
+            await page.goto(fb_ad_url, wait_until="domcontentloaded", timeout=60000)
+            await page.wait_for_timeout(150)
         except Exception as e:
             print(f"[❌] Exception during page.goto: {e}")
             return None, None, None
 
-        # ⬇️ CTA пошук
         try:
-            possible_ctas = await self.page.eval_on_selector_all(
+            possible_ctas = await page.eval_on_selector_all(
                 'div',
                 '''
                 els => els
@@ -520,36 +524,33 @@ class FacebookAdsLibraryDriver:
                     .filter(t => t && t.length > 2 && t.length <= 30)
                 '''
             )
-            CTA_KEYWORDS = ["install", "play", "start", "launch", "download", "завантажити", "грати", "установить",
-                            "перейти", "відкрити", "почати", "спробувати"]
             for t in possible_ctas:
-                if any(k in t.lower() for k in CTA_KEYWORDS):
+                if any(k in t.lower() for k in COMMERCIAL_KEYWORDS):
                     cta_text = t.strip()
                     break
         except Exception as e:
             print(f"[⚠️] CTA parsing error: {e}")
 
-        # ⬇️ app-link розпізнавання
         try:
-            links = await self.page.eval_on_selector_all("a", "els => els.map(el => el.href)")
+            links = await page.eval_on_selector_all("a", "els => els.map(el => el.href)")
             for link in links:
                 if "l.facebook.com/l.php?u=" in link:
                     decoded = extract_final_url(link)
-                    if any(domain in decoded for domain in ["play.google.com", "apps.apple.com", "adjust.com"]):
+                    if not any(domain in decoded for domain in ["play.google.com", "apps.apple.com", "adjust.com"]):
                         decoded_app_link = decoded
                         break
         except Exception as e:
             print(f"[⚠️] Failed to eval links: {e}")
+        await page.close()
 
         best_media = choose_best_media(media_urls)
-
         return best_media, decoded_app_link, cta_text
 
 
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BO7JusTtmZA4UtVOTPIAJErSeVEZBlJBi8ZCVm3Ka78ZAiGQKxmyCOGcG6m6yQmMPBzZCPNDGG0CSgYIZBrzWVAGqmGXuydUrFhqslaKBbo1G49TakgXuxIlaVBfnj3KKuimKFiDSNu5f0TuZBZA3so9ZBXI6M1YlAuTGzPAjRhnwKT40v091QGX7TS2IXyQdaLwYP0rL1NwRmm1zXmceJWxQCWDk1UQHuNQZDZD",
+            access_token="EAAKCNpvlGQ8BOwLRbDMpLmtJ8TnFViaeb9Qq5hqSqoUdp9M4zMeoWajh303n9zPVP4CsZAfD2ZCIPD7aoa7OK4zbFzhpYyPUKry1IXaDJM5ZBTXXZBbDtdYmhmCXLRR1wDwVthiWZCUoX2NKPxEBYVQadtZAbJgO9ZAZAcchJFggL7p4NTA3aZB2l6czBCenFMzHPWEWFcpH09apYGWGAWFKGQG01A9bjeridhZAMTs4bn9vAZD",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"
