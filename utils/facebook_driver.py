@@ -550,7 +550,7 @@ class FacebookAdsLibraryDriver:
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BOwLRbDMpLmtJ8TnFViaeb9Qq5hqSqoUdp9M4zMeoWajh303n9zPVP4CsZAfD2ZCIPD7aoa7OK4zbFzhpYyPUKry1IXaDJM5ZBTXXZBbDtdYmhmCXLRR1wDwVthiWZCUoX2NKPxEBYVQadtZAbJgO9ZAZAcchJFggL7p4NTA3aZB2l6czBCenFMzHPWEWFcpH09apYGWGAWFKGQG01A9bjeridhZAMTs4bn9vAZD",
+            access_token="EAAKCNpvlGQ8BO1h0nkqpff9TddMlxkZAxC7S01Do06NZCfhMClBShiPHaW2A7pi0KImGMoZAuvSYU4vlx1X1zYVxEVpQ1OZCzRuK5eb6rxoMO0YdTEjcTXZCLMyXqCrP5ZCOqDkI1JiKHfwLeW3psH7o8m3e27LA9qDtHMswQNlmHkkSc5hrd4Q4DoMfz9k6CtLfsdqSA9D5RuowZBSZAALJeLkQnZCkcvwn8jOMZAEaSHRQZDZD",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"
@@ -566,7 +566,7 @@ if __name__ == '__main__':
             ads_page1, search_cursor_page1 = await driver.get_ads_page(
                 page_size=page_size,
                 niche="gambling",  # Now specifically gambling
-                placements=["facebook", "instagram"],
+                placements=["facebook", "instagram", "audience_network", "threads", "messenger"],
                 ad_type="all",
                 period="month",
                 # keyword="casino",  # Broad keyword for gambling
