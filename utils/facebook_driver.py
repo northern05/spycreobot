@@ -515,8 +515,6 @@ class FacebookAdsLibraryDriver:
             page = await context.new_page()
             page.on("response", handle_response)
             await page.goto(fb_ad_url, wait_until="networkidle", timeout=90000)
-            html = await page.content()
-            print(html)
             await page.wait_for_timeout(3000)
         except Exception as e:
             print(f"[❌] Exception during page.goto: {e}")
