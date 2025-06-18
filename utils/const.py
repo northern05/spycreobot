@@ -43,55 +43,58 @@ COUNTRY_TO_LANG_CODE = {
 
 NICHE_KEYWORDS_COMBINATIONS = {
     "gambling": [
-        # 🎰 Ігрові CTA, які часто з’являються в банерах/лендінгах
+        # 🎰 Агресивні CTA — чіпляють з першого погляду
+        ["play", "now", "win"],
+        ["download", "win", "money"],
+        ["claim", "bonus", "cash"],
+        ["click", "install", "bonus"],
+        ["win", "cash", "today"],
+        ["lucky", "spin", "win"],
+        ["withdraw", "real", "money"],
+        ["bonus", "offer", "claim"],
+        ["get", "now", "bonus"],
+
+        # 🎲 Казино, ігрові додатки
         ["free", "spins", "casino"],
-        ["jackpot", "win", "game"],
-        ["slot", "register", "lucky"],
-        ["play", "casino", "live"],
-        ["tournament", "bonus", "code"],
-        ["download", "register", "win"],
+        ["slots", "real", "money"],
+        ["jackpot", "game", "casino"],
+        ["live", "casino", "app"],
+        ["777", "slots", "win"],
+        ["new", "casino", "bonus"],
 
-        # 🔥 Агресивні, high-CTR, банерні/CPA формати
-        ["no", "deposit", "bonus"],
-        ["download", "bonus", "play"],
-        ["real", "money", "casino"],
-        ["cashout", "fast", "payout"],
-        ["instant", "withdrawal", "spins"],
-        ["no", "verification", "bonus"],
-        ["new", "account", "bonus"],
-        ["100%", "match", "bonus"],
+        # 🔥 CPA/PWA + aggressive funnel
+        ["tap", "install", "now"],
+        ["open", "pwa", "casino"],
+        ["instant", "access", "play"],
+        ["fast", "bonus", "cash"],
+        ["play", "game", "web"],
+        ["pwa", "bonus", "real"],
+        ["start", "now", "cash"],
 
-        # 🎲 Класичні азартні ігри (менш рекламні, більше контентні)
-        ["blackjack", "poker", "game"],
-        ["roulette", "baccarat", "card"],
-        ["slots", "machines", "online"],
+        # 💸 Виплати, довіра, виграші
+        ["fast", "payout", "cashout"],
+        ["instant", "withdrawal", "cash"],
+        ["real", "money", "withdraw"],
+        ["deposit", "bonus", "now"],
+        ["verification", "no", "needed"],
+        ["no", "email", "required"],
 
-        # 📱 Мобільні додатки, Android traffic
-        ["mobile", "casino", "app"],
-        ["app", "mobile", "android"],
-        ["mobile", "slots", "777"],
+        # 🧲 Lead/Pixel trigger combinations
+        ["lead", "pixel", "sub_id"],
+        ["campaign", "id", "click"],
+        ["ad", "placement", "bonus"],
 
-        # 💸 Виплати, кешбек, фінансові теми
-        ["payout", "withdraw", "cashout"],
-        ["withdraw", "deposit", "claim"],
-        ["fast", "real", "money"],
-        ["offer", "deposit", "cash"],
-
-        # 💡 Промо-терміни, бонуси
-        ["bonus", "win", "now"],
+        # 🏆 Промо і конкурси
         ["promo", "spin", "free"],
-        ["welcome", "jackpot", "claim"],
-        ["exclusive", "offer", "limited"],
-        ["big", "prize", "today"],
-        ["unlimited", "chance", "today"],
+        ["limited", "offer", "today"],
+        ["exclusive", "bonus", "now"],
+        ["lucky", "bonus", "claim"],
 
-        # 🧠 Менш агресивні — більше схожі на соціальний формат
-        ["online", "bonus", "slot"],
-        ["bet", "win", "now"],
-        ["games", "bet", "money"],
-        ["lucky", "exclusive", "big"],
-        ["betting", "online", "site"],
-        ["new", "player", "bonus"]
+        # 📱 Мобільні зв’язки
+        ["casino", "pwa", "app"],
+        ["mobile", "bonus", "slots"],
+        ["play", "web", "install"],
+        ["casino", "install", "today"]
     ],
     "crypto": [
         ["crypto", "nft"],
