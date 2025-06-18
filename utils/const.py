@@ -1,7 +1,6 @@
 CONTENT_CHAR_LIMIT = 3000
 
 COMMERCIAL_KEYWORDS = {
-    # English
     "download", "install", "play", "грати", "играть", "jugar", "jouer", "spielen", "giocare", "jogar", "grać", "oyna",
     "spelen", "spela", "プレイ", "玩", "العب", "खेलें", "재생", "main", "main", "hrát", "завантажити", "встановити",
     "скачать", "установить", "descargar", "instalar", "télécharger", "installer", "herunterladen", "installieren",

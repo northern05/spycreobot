@@ -12,6 +12,8 @@ from utils.const import *
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+MAX_PLAYWRIGHT_NAV_ATTEMPTS = 2
+
 
 class FacebookAdsLibraryDriver:
     def __init__(
@@ -26,7 +28,9 @@ class FacebookAdsLibraryDriver:
         self.client = httpx.AsyncClient(timeout=30)
         self.app_id = app_id
         self.app_secret = app_secret
+
         self.browser = None
+        self.context = None
 
     async def init_playwright(self):
         playwright = await async_playwright().start()
@@ -34,24 +38,16 @@ class FacebookAdsLibraryDriver:
             headless=True,
             args=['--no-sandbox', '--disable-setuid-sandbox']
         )
-
-    async def new_playwright_context(self):
-        context = await self.browser.new_context(
+        self.context = await self.browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                        "(KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
             locale="en-US",
             viewport={"width": 1280, "height": 720}
         )
-        await context.set_extra_http_headers({
+        await self.context.set_extra_http_headers({
             "Referer": "https://www.facebook.com/",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "none",
-            "Sec-Fetch-User": "?1",
-            "Upgrade-Insecure-Requests": "1"
+            "Accept-Language": "en-US,en;q=0.9"
         })
-        return context
 
     async def exchange_token(self) -> str:
         url = "https://graph.facebook.com/v19.0/oauth/access_token"
@@ -320,13 +316,10 @@ class FacebookAdsLibraryDriver:
                     f"Excluding ad ID {ad.get('id')} due to body length ({len(body)} >= {CONTENT_CHAR_LIMIT}).")
                 return None
 
-            media_url, app_url, cta_text = await self.extract_media_from_network(fb_ad_url=snapshot_url)
-            logging.info(f"CREOS: {media_url}, APP: {app_url}, BUTTON: {cta_text}")
-            try:
-                cta_text = cta_text.encode('latin1').decode('utf-8')
-            except Exception:
-                pass
-            if not app_url or not cta_text or any(d in app_url for d in ("play.google", "apps.apple")): return None
+            media_url, app_url, cta_text = await self.extract(fb_ad_url=snapshot_url)
+            logging.info("="*100+f"\nSNAPSHOT: {snapshot_url}\n MEDIA: {media_url}\n APP: {app_url}\n BUTTON: {cta_text}\n\n" + "="*100)
+            button = cta_text.encode('latin1').decode('utf-8')
+            if not app_url or not button or any(d in app_url for d in ("play.google", "apps.apple")): return None
 
             return {
                 "id": ad_id,
@@ -341,7 +334,7 @@ class FacebookAdsLibraryDriver:
                 "page_id": ad.get("page_id"),
                 "media_url": media_url,
                 "app_url": app_url,
-                "button": cta_text,
+                "button": button,
             }
         except Exception as e:
             logging.exception(f"Unexpected error in _format_ad for ad ID {ad.get('id')}: {e}")
@@ -470,91 +463,99 @@ class FacebookAdsLibraryDriver:
 
         return emoji_pattern.sub(r'', text)
 
-    async def extract_media_from_network(self, fb_ad_url: str) -> tuple[str | None, str | None, str | None]:
+    async def extract(self, fb_ad_url: str) -> tuple[str | None, str | None, str | None]:
         media_urls = []
         cta_text = None
-        decoded_app_link = None
+        decoded = None
 
         def extract_final_url(fb_link: str) -> str:
             try:
                 parsed = urlparse(fb_link)
                 query = parse_qs(parsed.query)
-                if "u" in query:
-                    return unquote(query["u"][0])
-                return fb_link
+                return unquote(query["u"][0]) if "u" in query else fb_link
             except Exception:
                 return fb_link
 
-        def choose_best_media(sources: list[str]) -> str | None:
-            def is_valid_video(url): return ".mp4" in url and "video" in url and "fbcdn.net" in url
+        def is_snapshot_url_valid(url: str) -> bool:
+            try:
+                r = httpx.head(url, timeout=10, follow_redirects=True)
+                return r.status_code == 200
+            except Exception:
+                return False
 
-            def is_valid_image(url): return re.search(r'\.(jpg|jpeg|png)', url) and "fbcdn.net" in url and "s60x60" not in url
+        def choose_best_media(sources: list[str]) -> str | None:
+            def is_valid_video(url):
+                return ".mp4" in url and "video" in url and "fbcdn.net" in url
+
+            def is_valid_image(url):
+                return re.search(r'\.(jpg|jpeg|png)', url) and "fbcdn.net" in url and "s60x60" not in url
 
             def extract_size_score(url):
-                return int(re.search(r's(\d+)x(\d+)', url).group(1)) * int(
-                    re.search(r's(\d+)x(\d+)', url).group(2)) if re.search(r's(\d+)x(\d+)', url) else 0
+                match = re.search(r's(\d+)x(\d+)', url)
+                return int(match.group(1)) * int(match.group(2)) if match else 0
 
             videos = list(filter(is_valid_video, sources))
             if videos:
                 return max(videos, key=len)
+
             images = list(filter(is_valid_image, sources))
             if images:
                 return max(images, key=extract_size_score)
+
             return None
+
+        if not is_snapshot_url_valid(fb_ad_url):
+            print(f"[❌] Snapshot URL is not accessible: {fb_ad_url}")
+            return None, None, None
+
+        page = await self.context.new_page()
 
         async def handle_response(response):
             url = response.url
             if "l.facebook.com/l.php" in url:
                 url = extract_final_url(url)
+
             if "fbcdn.net" in url and re.search(r'\.(mp4|jpg|jpeg|png)', url):
                 media_urls.append(url)
 
+        page.on("response", handle_response)
+
         try:
-            context = await self.new_playwright_context()
-            page = await context.new_page()
-            page.on("response", handle_response)
-            await page.goto(fb_ad_url, wait_until="networkidle", timeout=90000)
+            await page.goto(fb_ad_url, wait_until="domcontentloaded", timeout=60000)
             await page.wait_for_timeout(3000)
         except Exception as e:
             print(f"[❌] Exception during page.goto: {e}")
             return None, None, None
 
         try:
-            possible_ctas = await page.eval_on_selector_all(
-                'div',
-                '''
-                els => els
-                    .map(el => el.innerText)
-                    .filter(t => t && t.length > 2 && t.length <= 30)
-                '''
-            )
-            for t in possible_ctas:
-                if any(k in t.lower() for k in COMMERCIAL_KEYWORDS):
-                    cta_text = t.strip()
-                    break
-        except Exception as e:
-            print(f"[⚠️] CTA parsing error: {e}")
-
-        try:
-            links = await page.eval_on_selector_all("a", "els => els.map(el => el.href)")
+            links = await page.query_selector_all('a[href*="l.facebook.com/l.php?u="]')
             for link in links:
-                if "l.facebook.com/l.php?u=" in link:
-                    decoded = extract_final_url(link)
-                    if not any(domain in decoded for domain in ["play.google.com", "apps.apple.com", "adjust.com"]):
-                        decoded_app_link = decoded
-                        break
+                href = await link.get_attribute("href")
+                if not href:
+                    continue
+
+                parsed = urlparse(href)
+                qs = parse_qs(parsed.query)
+                decoded = unquote(qs.get("u", [""])[0])
+
+                all_divs = await link.query_selector_all("div")
+                for div in all_divs:
+                    text = (await div.inner_text()).strip()
+                    if text and 2 <= len(text) <= 30 and any(k in text.lower() for k in COMMERCIAL_KEYWORDS):
+                        cta_text = text
         except Exception as e:
-            print(f"[⚠️] Failed to eval links: {e}")
+                print(f"[⚠️] Failed to eval links: {e}")
+
         await page.close()
 
         best_media = choose_best_media(media_urls)
-        return best_media, decoded_app_link, cta_text
+        return best_media, decoded, cta_text
 
 
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BO9d3gclA72et9FTntbZCogyMcDMwfbbdTVrFkmaUa1hhoGQo9ngjE5ZBvzJQjcNWOzoQVuG9F9odblvZArk7hczpRRITBtsGZCnss5kM9CaInz6kTpKwqBQRyiu5mHuQMJYP560YZBv0PUIl8ox3winyt3qO4jeR40nYvwHiwVdyG3vZBlhvmcfD40yO0qSGpjdI1sG56imbB5ZBhSptuvgiVtw6sV0TeUZD",
+            access_token="EAAKCNpvlGQ8BO37MyiZCN2Bz7Ld7AEY6vLQdP2fVxkewfnZB9lZBTa9a8BjR6wrEi8yZBkQZC2vsHt2NqchlnRWIwq1ZBsOaUODVcoirqJovY0fVLYNpVZB7ZAunUr1DIfzVrFaazxTrflmW7CpcxJPsqsxEb8QhqoWuTnltFE2NZBRt6mEfLnI2AXN8Arm1OOZAQcveoZAF2gFZCNa8ZCGXqcrulkpK3pQfdxsKpvbi0YtCdpAZDZD",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"
