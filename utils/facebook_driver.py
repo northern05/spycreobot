@@ -318,8 +318,7 @@ class FacebookAdsLibraryDriver:
 
             media_url, app_url, cta_text = await self.extract(fb_ad_url=snapshot_url)
             logging.info("="*100+f"\nSNAPSHOT: {snapshot_url}\n MEDIA: {media_url}\n APP: {app_url}\n BUTTON: {cta_text}\n\n" + "="*100)
-            button = cta_text.encode('latin1').decode('utf-8')
-            if not app_url or not button or any(d in app_url for d in ("play.google", "apps.apple")): return None
+            if not app_url or not cta_text or any(d in app_url for d in ("play.google", "apps.apple")): return None
 
             return {
                 "id": ad_id,
@@ -334,7 +333,7 @@ class FacebookAdsLibraryDriver:
                 "page_id": ad.get("page_id"),
                 "media_url": media_url,
                 "app_url": app_url,
-                "button": button,
+                "button": cta_text,
             }
         except Exception as e:
             logging.exception(f"Unexpected error in _format_ad for ad ID {ad.get('id')}: {e}")
