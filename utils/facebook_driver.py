@@ -317,8 +317,9 @@ class FacebookAdsLibraryDriver:
                 return None
 
             media_url, app_url, cta_text = await self.extract(fb_ad_url=snapshot_url)
-            logging.info("="*100+f"\nSNAPSHOT: {snapshot_url}\n MEDIA: {media_url}\n APP: {app_url}\n BUTTON: {cta_text}\n\n" + "="*100)
-            if not app_url or not cta_text or any(d in app_url for d in ("play.google", "apps.apple")): return None
+            logging.info(
+                "=" * 100 + f"\nSNAPSHOT: {snapshot_url}\n MEDIA: {media_url}\n APP: {app_url}\n BUTTON: {cta_text}\n\n" + "=" * 100)
+            if not app_url or not self.is_pwa_url(app_url): return None
 
             return {
                 "id": ad_id,
@@ -374,6 +375,7 @@ class FacebookAdsLibraryDriver:
             current_cursor = search_cursor.get('current_cursor', None)
             seen_ad_ids = set(search_cursor.get('seen_ad_ids', []))
             seen_content_hashes = set(search_cursor.get('seen_content_hashes', []))
+            seen_urls = set(search_cursor.get('seen_urls', []))
             logging.info(
                 f"Resuming search from combination {current_keyword_combination_index}, cursor {current_cursor}, seen {len(seen_ad_ids)} ads.")
         else:
@@ -381,6 +383,7 @@ class FacebookAdsLibraryDriver:
             current_cursor = None
             seen_ad_ids = set()
             seen_content_hashes = set()
+            seen_urls = set()
             logging.info("Starting new unique ad search from scratch.")
 
         api_fetch_limit = max(page_size, 100)
@@ -405,14 +408,16 @@ class FacebookAdsLibraryDriver:
 
                 for ad in ads_chunk:
                     # Create a content hash for soft de-duplication
-                    content_string = f"{ad.get('title', '')}|{ad.get('description', '')}|{ad.get('body', '')}"
+                    content_string = ad.get("body")
                     content_hash = hashlib.md5(content_string.encode('utf-8')).hexdigest()
 
                     # Check for uniqueness based on both Facebook ID and content hash
-                    if ad["id"] not in seen_ad_ids and content_hash not in seen_content_hashes:
+                    if ad["id"] not in seen_ad_ids and content_hash not in seen_content_hashes and ad[
+                        "app_url"] not in seen_urls:
                         all_collected_ads.append(ad)
                         seen_ad_ids.add(ad["id"])
                         seen_content_hashes.add(content_hash)
+                        seen_urls.add(ad["app_url"])
                         if len(all_collected_ads) >= page_size:
                             break  # Stop collecting if we reached the target page_size for this call
 
@@ -543,18 +548,53 @@ class FacebookAdsLibraryDriver:
                     if text and 2 <= len(text) <= 30 and any(k in text.lower() for k in COMMERCIAL_KEYWORDS):
                         cta_text = text
         except Exception as e:
-                print(f"[⚠️] Failed to eval links: {e}")
+            print(f"[⚠️] Failed to eval links: {e}")
 
         await page.close()
 
         best_media = choose_best_media(media_urls)
         return best_media, decoded, cta_text
 
+    def is_pwa_url(self, url: str) -> bool:
+        url = url.lower()
+        parsed = urlparse(url)
+        domain = parsed.netloc
+
+        # 1. Якщо це посилання на Google Play або App Store із валідним id → НЕ PWA
+        if "play.google.com" in domain and "/store/apps/details" in parsed.path:
+            query = parse_qs(parsed.query)
+            if "id" in query and query["id"][0]:
+                return False  # це посилання на справжній застосунок
+
+        if "apps.apple.com" in domain and "/app/" in parsed.path:
+            return False  # теж справжній застосунок
+
+        # 2. PWA сигнатури
+        tracking_keywords = [
+            "sub_id", "sub1", "sub2", "lead_id", "campaign.name", "ad.id",
+            "adset.name", "placement", "pixel", "fbclid", "open_pwa", "key=", "media_source"
+        ]
+        suspicious_tlds = [".shop", ".online", ".click", ".quest", ".vip", ".xyz", ".life", ".site", ".fun", ".casino"]
+        pwa_indicators = ["pwa", "webapp", "type=pwa", "open_pwa"]
+
+        # 3. Якщо домен закінчується на підозрілу зону
+        if any(domain.endswith(tld) for tld in suspicious_tlds):
+            return True
+
+        # 4. Якщо є трекінг параметри і це не app store
+        if any(kw in url for kw in tracking_keywords):
+            return True
+
+        # 5. Якщо явно зазначено pwa
+        if any(pwa in url for pwa in pwa_indicators):
+            return True
+        return False
+
 
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BO37MyiZCN2Bz7Ld7AEY6vLQdP2fVxkewfnZB9lZBTa9a8BjR6wrEi8yZBkQZC2vsHt2NqchlnRWIwq1ZBsOaUODVcoirqJovY0fVLYNpVZB7ZAunUr1DIfzVrFaazxTrflmW7CpcxJPsqsxEb8QhqoWuTnltFE2NZBRt6mEfLnI2AXN8Arm1OOZAQcveoZAF2gFZCNa8ZCGXqcrulkpK3pQfdxsKpvbi0YtCdpAZDZD",
+            access_token="EAAKCNpvlGQ8BOwEZBdKOe1ZCbPB5pzYp6MF48k5W1dSv9uEQNs5ptp2ZBHDS4WJVnIhlnzffpOh4HJtqZBrAJ94bHsZCiuNad0AAnGwm7CYyT5uSAT1cGZCUph0yI1R6qFSYg209iUY5II2WdUATPIo0eUqcNn3LDBA8VZC8Kc4ZB0nSZBCEbCYFP8dcuyqPdmZBNyeXQi1eEM87FQhzorGhUq5dwwJWEtpUqBJF3Q2XZCKFQZDZD",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"
@@ -571,7 +611,7 @@ if __name__ == '__main__':
                 page_size=page_size,
                 niche="gambling",  # Now specifically gambling
                 placements=["facebook", "instagram", "audience_network", "threads", "messenger"],
-                ad_type="all",
+                ad_type="video",
                 period="month",
                 # keyword="casino",  # Broad keyword for gambling
             )
@@ -587,30 +627,31 @@ if __name__ == '__main__':
                 print(f"  Type: {ad.get('')}")
                 print(f"  Media_url {ad.get('media_url')}")
                 print(f"  Button: {ad.get('button')}")
+                print(f"  APP URL: {ad.get('app_url')}")
                 print("-" * 20)
             print(f"Next search cursor for Page 1: {'exists' if search_cursor_page1 else 'None'}")
 
             # --- Second Page (if cursor exists) ---
-            if search_cursor_page1:
-                print("\n--- Page 2 (Gambling, continued) ---")
-                ads_page2, search_cursor_page2 = await driver.get_ads_page(
-                    page_size=page_size,
-                    search_cursor=search_cursor_page1,  # Pass the cursor from the previous page
-                    niche="gambling",  # Re-pass original search parameters
-                    placements=["facebook", "instagram"],
-                    ad_type="all",
-                    period="month"
-                )
-                print(f"Collected {len(ads_page2)} ads for Page 2.")
-                for i, ad in enumerate(ads_page2):
-                    print(f"--- Ad {i + 1} ---")
-                    print(f"  ID: {ad['id']}")
-                    print(f"  Title: {ad.get('title')}")
-                    print(f"  Body (first 100 chars): {ad.get('body')[:100]}...")
-                    print(f"  URL: {ad.get('url')}")
-                    print(f"  Days Running: {ad.get('days_running')}")
-                    print("-" * 20)
-                print(f"Next search cursor for Page 2: {'exists' if search_cursor_page2 else 'None'}")
+            # if search_cursor_page1:
+            #     print("\n--- Page 2 (Gambling, continued) ---")
+            #     ads_page2, search_cursor_page2 = await driver.get_ads_page(
+            #         page_size=page_size,
+            #         search_cursor=search_cursor_page1,  # Pass the cursor from the previous page
+            #         niche="gambling",  # Re-pass original search parameters
+            #         placements=["facebook", "instagram"],
+            #         ad_type="all",
+            #         period="month"
+            #     )
+            #     print(f"Collected {len(ads_page2)} ads for Page 2.")
+            #     for i, ad in enumerate(ads_page2):
+            #         print(f"--- Ad {i + 1} ---")
+            #         print(f"  ID: {ad['id']}")
+            #         print(f"  Title: {ad.get('title')}")
+            #         print(f"  Body (first 100 chars): {ad.get('body')[:100]}...")
+            #         print(f"  URL: {ad.get('url')}")
+            #         print(f"  Days Running: {ad.get('days_running')}")
+            #         print("-" * 20)
+            #     print(f"Next search cursor for Page 2: {'exists' if search_cursor_page2 else 'None'}")
 
             # You can continue calling get_ads_page in a loop until search_cursor is None
 
