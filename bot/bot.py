@@ -592,11 +592,11 @@ async def send_creos(
                 user_data = await state.get_data()
                 params = {
                     "niche__ilike": json.get("niche"),
-                    "geo__ilike": json.get("country"),
                     "created_at__gte": calculate_date_filter(json.get("period")),
-                    "page_number": user_data.get("page_number"),
+                    "page_number": user_data.get("page_number") if user_data.get("page_number") else 1,
                     "page_size": 10
                 }
+                if json.get("country"): params.update({"geo__ilike": json.get("country")})
                 request = httpx.Request(
                     "GET",
                     url=f"{API_URL}/creatives",
