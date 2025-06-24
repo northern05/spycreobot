@@ -590,10 +590,19 @@ async def send_creos(
                 )
             else:
                 user_data = await state.get_data()
+                filter_parts = [
+                    f"niche__ilike={json.get('niche')}",
+                    f"created_at__gte={calculate_date_filter(json.get('period'))}",
+                ]
+
+                if json.get("country"):
+                    filter_parts.append(f"geo__ilike={json.get('country')}")
+
+                # Об'єднай все в одну строку
+                objects_filter_str = "&".join(filter_parts)
                 params = {
                     "telegram_id": json.get("telegram_id"),
-                    "niche__ilike": json.get("niche"),
-                    "created_at__gte": calculate_date_filter(json.get("period")),
+                    "objects_filter": objects_filter_str,
                     "page_number": user_data.get("page_number") if user_data.get("page_number") else 1,
                     "page_size": 10
                 }
