@@ -563,7 +563,6 @@ async def send_creos(
         state: FSMContext,
         similar: bool = False
 ):
-    response_data = None
     try:
         async with httpx.AsyncClient(timeout=1800) as client:
             if json.get("keyword") or json.get("similar"):

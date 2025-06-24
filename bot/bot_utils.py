@@ -194,7 +194,7 @@ def calculate_date_filter(period: str) -> str:
         "week": timedelta(days=7),
         "month": timedelta(days=30),
         "quarter": timedelta(days=90),
-        "half_year": timedelta(days=180),
+        "halfyear": timedelta(days=180),
         "year": timedelta(days=365)
-    }.get(period, timedelta(days=7))
+    }.get(period, timedelta(days=366))
     return (datetime.utcnow().date() - delta).strftime("%Y-%m-%d")
