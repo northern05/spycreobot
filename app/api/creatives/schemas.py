@@ -15,6 +15,7 @@ class CreativeBase(BaseModel):
     media_url: str
     button: str | None = None
     app_url: str | None = None
+    type: str
 
 
 class CreativeResponse(CreativeBase):

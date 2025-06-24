@@ -634,13 +634,14 @@ async def send_creos(
                 "page_size": response_data.get("page_number"),
             })
         for creative in ads:
-            url = creative.get('url')
+            url = creative.get('facebook_url')
             media_url = creative.get('media_url')
             page_id = creative.get("page_id")
             days_running: int = creative.get("days_running")
             platforms: list = creative.get("platforms")
             button: str = creative.get("button")
             title: str = creative.get("title")
+            ad_type = creative.get("type")
             keyboard = InlineKeyboardMarkup(
                 inline_keyboard=[[
                     InlineKeyboardButton(text="🔗 Open Ad in Browser", url=url),
@@ -652,14 +653,14 @@ async def send_creos(
                       f"Days running: {days_running}\n" \
                       f"Button: {button}"
             try:
-                if media_url and "video" in media_url:
+                if ad_type == "video":
                     await bot.send_video(
                         chat_id=message.chat.id,
                         video=media_url,
                         reply_markup=keyboard,
                         caption=f"#VIDEO\n" + caption
                     )
-                elif media_url and any(ext in media_url for ext in [".jpg", ".jpeg", ".png"]):
+                elif ad_type == "image":
                     await bot.send_photo(
                         chat_id=message.chat.id,
                         photo=media_url,
@@ -667,7 +668,6 @@ async def send_creos(
                         caption=f"#IMAGE\n" + caption
                     )
                 else:
-                    # fallback якщо немає медіа, лише лінк
                     await bot.send_message(
                         chat_id=message.chat.id,
                         text=f"🔗 [Open media]({url})\n" + caption,
