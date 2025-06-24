@@ -212,7 +212,7 @@ class FacebookAdsLibraryDriver:
 
         # Add all combinations from NICHE_KEYWORDS_COMBINATIONS for each relevant niche
         for i, combo in enumerate(NICHE_KEYWORDS_COMBINATIONS.get(niche)):
-            term_string = ''.join([f"%20{word}" for word in combo])
+            term_string = ','.join([word for word in combo])
             if keyword: term_string += f" %E2%A0%80{keyword}%20"
             generated_terms.append(term_string)
 
@@ -551,10 +551,10 @@ class FacebookAdsLibraryDriver:
         if "play.google.com" in domain and "/store/apps/details" in parsed.path:
             query = parse_qs(parsed.query)
             if "id" in query and query["id"][0]:
-                return False  # це посилання на справжній застосунок
+                return False
 
         if "apps.apple.com" in domain and "/app/" in parsed.path:
-            return False  # теж справжній застосунок
+            return False
 
         # 2. PWA сигнатури
         tracking_keywords = [
@@ -582,7 +582,7 @@ class FacebookAdsLibraryDriver:
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BO84ZALrdCHFtm7kyCQsQL7cUW0XOyHlasma22XiQ5aJd8pmQFetutZCy3eEaFwFgdQULzMTwv0XDRMiEj7XPUb8HsKDJn2rjKMbJMFEj1H6nNTTnvvRUc4lMo7jPa4Xkqkbj9EezYsKcxt25wxHUXJsXXJYypft6Xk7kTknJxSCUOKpjvdHC2dh5Ms6C02BVnsKQ7D4fwoDfQPuzDict3bniy0lGI0tY5ndtAO",
+            access_token="EAAKCNpvlGQ8BO2pTFdB84reKkmRKkrbUr49HTAmwPbchSLo2W6dIZAIidKO9x2HbqeRCPaQXWeA4oqmaCqjXVyI1OzHZAgS5XniZBn9vjW259bbQ1491ZAv8ZAAntecQ3D4a0v7Npx2ycij9KoljbasuKmgEWUnGomELfm80wchtjbbsvuA7dET4DKnUV0MpaLgiU0zlGXEZAJSoZBsGBwI6ZAOdXzsH2D1HdwgpTIaAvdPvkmSV90ZC3r1IZD",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"

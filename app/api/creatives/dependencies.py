@@ -114,7 +114,7 @@ async def update_all_creatives():
                         logging.info(f"No more ads for combination {req_model}.")
                         break
 
-                    search_cursor = new_cursor  # важливо: оновлюємо курсор
+                    search_cursor = new_cursor
                 except Exception as e:
                     logging.exception(f"Error during caching for {req_model}: {e}")
                     break
