@@ -83,3 +83,4 @@ class CreativeFilter(FilterCore):
         return (
             select(Creative).order_by(Creative.created_at.desc())
         )
+

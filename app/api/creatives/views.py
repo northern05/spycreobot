@@ -2,7 +2,6 @@ import logging
 from fastapi import APIRouter, status, Depends
 from fastapi.responses import FileResponse
 from pathlib import Path
-
 from . import dependencies
 
 router = APIRouter(tags=["Creatives"])

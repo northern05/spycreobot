@@ -649,5 +649,4 @@ if __name__ == '__main__':
         finally:
             await driver.close()
 
-
     asyncio.run(run_main())

@@ -130,7 +130,6 @@ async def update_all_creatives():
                 "ad_type": ad_type,
                 "period": "year",
             }
-            # ⬇️ Кожна комбінація — окремий таск
             # all_tasks.append(
             #     _fetch_and_cache_pages_for_combination(base_request_params, pages_to_cache=10)
             # )
