@@ -11,7 +11,7 @@ from utils.paginated_response import PaginatedParams, paginate
 
 creative_query_filters = {
     'created_at': [ops.gte, ops.lte, ops.eq],
-    'geo': [ops.gte, ops.lte, ops.eq],
+    'geo': [ops.ilike, ops.eq],
     'niche': [ops.like, ops.ilike],
 }
 

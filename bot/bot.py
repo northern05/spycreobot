@@ -369,7 +369,6 @@ async def proceed_creative_search(message: types.Message, state: FSMContext):
         "ad_type": data.get("ad_type"),
         "period": data.get("period"),
         "keyword": data.get("keyword"),
-        "created_at": calculate_date_filter(data.get("period"))
     }
 
     await send_creos(
@@ -393,9 +392,7 @@ async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
         "ad_type": state_data.get("ad_type"),
         "period": state_data.get("period"),
         "keyword": state_data.get("keyword"),
-        "search_cursor": state_data.get("search_cursor"),
-        "created_at": calculate_date_filter(state_data.get("period")),
-        "page_number": state_data.get("page_number")
+        "search_cursor": state_data.get("search_cursor")
     }
 
     await send_creos(
@@ -416,8 +413,7 @@ async def pin_search(message: types.Message, state: FSMContext):
         "country": data.get("country"),
         "ad_type": data.get("ad_type"),
         "period": data.get("period"),
-        "keyword": data.get("keyword"),
-        "created_at": calculate_date_filter(data.get("period"))
+        "keyword": data.get("keyword")
     }
     response = requests.post(url=f"{API_URL}/pins", json=json, params={"telegram_id": str(telegram_id)})
     if response.status_code == 200:
@@ -502,8 +498,7 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
         "country": country,
         "ad_type": ad_type,
         "period": period,
-        "keyword": keyword,
-        "created_at": calculate_date_filter(selected_pin.get("period")),
+        "keyword": keyword
     }
     await state.update_data(data)
     await send_creos(
@@ -566,7 +561,6 @@ async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
         "page_id": str(user_data.get("page_id")),
         "search_cursor": user_data.get("search_cursor"),
         "niche": user_data.get("niche"),
-        "page_number": user_data.get("page_number")
     }
     await send_creos(
         json=json,
@@ -595,10 +589,17 @@ async def send_creos(
                     headers={"Content-Type": "application/json"}
                 )
             else:
+                user_data = await state.get_data()
+                params = json.update({
+                    "niche__ilike": json.get("niche"),
+                    "geo__ilike": json.get("country"),
+                    "created_at__gte": calculate_date_filter(json.get("period")),
+                    "page_number": user_data.get("page_number")
+                })
                 request = httpx.Request(
                     "GET",
                     url=f"{API_URL}/creatives",
-                    params=json,
+                    params=params,
                     headers={"Content-Type": "application/json"}
                 )
             response = await client.send(request)
