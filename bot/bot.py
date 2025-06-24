@@ -356,8 +356,6 @@ async def handle_skip_keyword(callback: types.CallbackQuery, state: FSMContext):
 
 
 async def proceed_creative_search(message: types.Message, state: FSMContext):
-    timer_message_id, timer_task = await send_and_update_timer(bot, message.chat.id, initial_duration=100, interval=1)
-
     telegram_id = message.from_user.id if str(message.from_user.id) != SELF_ID else message.chat.id
     data = await state.get_data()
 
@@ -374,15 +372,12 @@ async def proceed_creative_search(message: types.Message, state: FSMContext):
     await send_creos(
         json=json,
         message=message,
-        state=state,
-        timer_task=timer_task
+        state=state
     )
 
 
 @tg_router.callback_query(F.data == "next_ads_search")
 async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
-    timer_message_id, timer_task = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=100,
-                                                               interval=1)
     state_data = await state.get_data()
     json = {
         "telegram_id": str(callback.message.chat.id),
@@ -398,8 +393,7 @@ async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
     await send_creos(
         json=json,
         message=callback.message,
-        state=state,
-        timer_task=timer_task
+        state=state
     )
 
 
@@ -472,8 +466,6 @@ async def get_fav_creatives(callback: types.CallbackQuery, state: FSMContext):
 
 @tg_router.callback_query(F.data.startswith("pin_run:"))
 async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
-    timer_message_id, timer_task = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=100,
-                                                               interval=1)
     pin_id_from_callback = callback.data.split(":")[1]
     user_data = await state.get_data()
     user_pins = user_data.get("user_pins", {})
@@ -504,8 +496,7 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
     await send_creos(
         json=data,
         message=callback.message,
-        state=state,
-        timer_task=timer_task
+        state=state
     )
 
 
@@ -524,8 +515,6 @@ async def delete_saved_pin(callback: types.CallbackQuery):
 async def similar_search(callback: types.CallbackQuery, state: FSMContext):
     page_id = callback.data.split(":")[1]
     user_data = await state.get_data()
-    timer_message_id, timer_task = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=100,
-                                                               interval=1)
     telegram_id = callback.message.from_user.id if str(
         callback.message.from_user.id) != SELF_ID else callback.message.chat.id
 
@@ -534,7 +523,8 @@ async def similar_search(callback: types.CallbackQuery, state: FSMContext):
         "country": user_data.get("country"),
         "page_id": str(page_id),
         "niche": user_data.get("niche"),
-        "search_cursor": user_data.get("search_cursor")
+        "search_cursor": user_data.get("search_cursor"),
+        "similar": True
     }
 
     await state.update_data(json)
@@ -543,7 +533,6 @@ async def similar_search(callback: types.CallbackQuery, state: FSMContext):
         json=json,
         message=callback.message,
         state=state,
-        timer_task=timer_task,
         similar=True
     )
 
@@ -552,8 +541,6 @@ async def similar_search(callback: types.CallbackQuery, state: FSMContext):
 async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
     telegram_id = callback.message.from_user.id if str(
         callback.message.from_user.id) != SELF_ID else callback.message.chat.id
-    timer_message_id, timer_task = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=100,
-                                                               interval=1)
     user_data = await state.get_data()
     json = {
         "telegram_id": str(telegram_id),
@@ -566,7 +553,6 @@ async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
         json=json,
         message=callback.message,
         state=state,
-        timer_task=timer_task,
         similar=True
     )
 
@@ -575,13 +561,12 @@ async def send_creos(
         json: dict,
         message: types.Message,
         state: FSMContext,
-        timer_task,
         similar: bool = False
 ):
     response_data = None
     try:
         async with httpx.AsyncClient(timeout=1800) as client:
-            if json.get("keyword"):
+            if json.get("keyword") or json.get("similar"):
                 request = httpx.Request(
                     "GET",
                     url=f"{API_URL}/creatives/keyword",
@@ -598,7 +583,6 @@ async def send_creos(
                 if json.get("country"):
                     filter_parts.append(f"geo__ilike={json.get('country')}")
 
-                # Об'єднай все в одну строку
                 objects_filter_str = "&".join(filter_parts)
                 params = {
                     "telegram_id": json.get("telegram_id"),
@@ -636,15 +620,7 @@ async def send_creos(
         await message.answer("An unexpected error occurred!")
         await main_menu(event=message)  # Передаємо bot
         return
-    finally:
-        if timer_task:
-            timer_task.cancel()
-            try:
-                await timer_task
-            except asyncio.CancelledError:
-                pass
     if response_data:
-
         if not response_data.get("ads"):
             await message.answer("No ads by your query", parse_mode='MarkdownV2')
 

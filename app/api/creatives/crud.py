@@ -46,7 +46,7 @@ async def get_all(
             "days_running": days_running,
         })
         res.append(a)
-    response["data"] = res
+    response["ads"] = res
     return response
 
 
