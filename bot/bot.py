@@ -392,8 +392,10 @@ async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
         "ad_type": state_data.get("ad_type"),
         "period": state_data.get("period"),
         "keyword": state_data.get("keyword"),
-        "search_cursor": state_data.get("search_cursor")
+        "search_cursor": state_data.get("search_cursor"),
+        "page_number": state_data.get("page_number")
     }
+
     await send_creos(
         json=json,
         message=callback.message,
@@ -554,13 +556,13 @@ async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
     timer_message_id, timer_task = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=100,
                                                                interval=1)
     user_data = await state.get_data()
-    state_data = await state.get_data()
     json = {
         "telegram_id": str(telegram_id),
         "country": user_data.get("country"),
         "page_id": str(user_data.get("page_id")),
-        "search_cursor": state_data.get("search_cursor"),
-        "niche": user_data.get("niche")
+        "search_cursor": user_data.get("search_cursor"),
+        "niche": user_data.get("niche"),
+        "page_number": user_data.get("page_number")
     }
     await send_creos(
         json=json,
@@ -581,12 +583,20 @@ async def send_creos(
     response_data = None
     try:
         async with httpx.AsyncClient(timeout=1800) as client:
-            request = httpx.Request(
-                "GET",
-                url=f"{API_URL}/creatives",
-                json=json,
-                headers={"Content-Type": "application/json"}
-            )
+            if json.get("keyword"):
+                request = httpx.Request(
+                    "GET",
+                    url=f"{API_URL}/creatives/keyword",
+                    json=json,
+                    headers={"Content-Type": "application/json"}
+                )
+            else:
+                request = httpx.Request(
+                    "GET",
+                    url=f"{API_URL}/creatives",
+                    params=json,
+                    headers={"Content-Type": "application/json"}
+                )
             response = await client.send(request)
             response.raise_for_status()
             response_data = response.json()
@@ -623,8 +633,14 @@ async def send_creos(
             await message.answer("No ads by your query", parse_mode='MarkdownV2')
 
         ads = response_data.get("ads")
-        search_cursor = response_data.get("after")
-        await state.update_data({"search_cursor": search_cursor})
+        if response_data.get("after"):
+            search_cursor = response_data.get("after")
+            await state.update_data({"search_cursor": search_cursor})
+        else:
+            await state.update_data({
+                "page_number": response_data.get("after"),
+                "page_size": response_data.get("after"),
+            })
         for creative in ads:
             url = creative.get('url')
             media_url = creative.get('media_url')
