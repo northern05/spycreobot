@@ -3,13 +3,16 @@ import logging
 import hashlib
 import json
 from fastapi import Depends
+from fastapi.params import Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.credits import dependencies as credits_dp
 from app.core.models import db_helper
-from .schemas import CreativeResponse, CreativeRequest
+from .schemas import CreativeResponse, CreativeRequest, CreativeCreate
+from . import crud
 from app.core.modules_factory import fb_driver, redis_db
 from utils.const import *
+from utils.paginated_response import PaginatedResponse, PaginatedParams
 
 CACHE_TTL_SECONDS = 3600
 
@@ -27,7 +30,6 @@ async def get_creatives(
     cache_key_string = json.dumps(cache_key_params, sort_keys=True)
     cache_key_hash = hashlib.sha256(cache_key_string.encode('utf-8')).hexdigest()
     redis_key = f"creatives_cache:{cache_key_hash}"
-
     cached_data = await redis_db.get(redis_key)
     if cached_data:
         logging.info(f"Cache hit for key: {redis_key}")
@@ -38,8 +40,6 @@ async def get_creatives(
             return {"ads": ads, "after": search_cursor}
         except Exception as e:
             logging.error(f"Failed to deserialize cached data for {redis_key}: {e}. Fetching new data.")
-
-    logging.info(f"Cache miss for key: {redis_key}. Fetching from Facebook...")
 
     ads, search_cursor = await fb_driver.get_ads_page(
         **creative_request.dict(exclude={"telegram_id"})
@@ -52,77 +52,91 @@ async def get_creatives(
             "search_cursor": search_cursor
         }
         await redis_db.setex(redis_key, CACHE_TTL_SECONDS, json.dumps(data_to_cache))
-        logging.info(f"Data cached for key: {redis_key} with TTL: {CACHE_TTL_SECONDS}s")
-
     return {"ads": result, "after": search_cursor}
 
 
-async def update_all_creatives(
+async def get_all(
+        telegram_id: str,
+        objects_filter: str = Query(default=''),
+        pagination_query: PaginatedParams = Depends(),
         session: AsyncSession = Depends(db_helper.scoped_session_dependency),
 ):
-    combination_tasks = []
-    for geo in COUNTRY_TO_LANG_CODE.keys():
-        for ad_type in ("image", "video", "all"):
-            for period in ("week", "month", "quarter", "halfyear"):
-                _search_cursor = None
-                for i in range(5):
-                    base_request_params = {
-                        "telegram_id": "0",
-                        "niche": "gambling",
-                        "placements": ["instagram", "facebook", "audience_network", "threads", "messenger"],
-                        "country": geo,
-                        "ad_type": ad_type,
-                        "period": period,
-                        "keyword": None,
-                        "search_cursor": _search_cursor
-                    }
-                    creative_request_model = CreativeRequest(**base_request_params)
+    res = await crud.get_all(
+        session=session, filter_query=objects_filter,
+        pagination_query=pagination_query
+    )
+    if res:
+        await credits_dp.process_users_credits(session=session, telegram_id=telegram_id)
+    return res
 
-                    # Launch a sub-task for this specific combination to fetch multiple pages
-                    # This avoids deep nesting and makes it truly async
-                    async def _fetch_and_cache_pages_for_combination(
-                            req_model: CreativeRequest, current_session: AsyncSession, pages_to_cache: int = 5
-                    ):
-                        search_cursor_for_combo = None
-                        for page_num in range(pages_to_cache):
-                            try:
-                                # Create a copy of the request model and update cursor
-                                page_request_model = req_model.copy(update={"search_cursor": search_cursor_for_combo})
 
-                                logging.info(
-                                    f"Caching: Niche={req_model.niche}, Country={req_model.country}, Type={req_model.ad_type}, Period={req_model.period}, Keyword={req_model.keyword}, Page={page_num + 1}")
+async def update_all_creatives():
+    async def _fetch_and_cache_pages_for_combination(
+            req_model: dict, pages_to_cache: int = 10
+    ):
+        search_cursor = None
+        async with db_helper.session_factory() as current_session:
+            for page_num in range(pages_to_cache):
+                try:
+                    req_model_with_cursor = req_model.copy()
+                    req_model_with_cursor["search_cursor"] = search_cursor
 
-                                # Call get_creatives directly (it handles fetching from FB or cache, and caching)
-                                # It needs a session. Use the one passed to update_all_creatives.
-                                result_dict = await get_creatives(
-                                    creative_request=page_request_model,
-                                    session=current_session  # Pass the session here
+                    ads, new_cursor = await fb_driver.get_ads_page(**req_model_with_cursor)
+
+                    for ad in ads:
+                        existing_creative = await crud.check_creative(
+                            session=current_session,
+                            app_url=ad.get("app_url"),
+                            facebook_id=str(ad.get("id")),
+                            title=ad.get("title")
+                        )
+                        if not existing_creative:
+                            await crud.create(
+                                session=current_session,
+                                creative_data=CreativeCreate(
+                                    niche=req_model.get("niche"),
+                                    facebook_id=str(ad.get("id")),
+                                    title=ad.get("title"),
+                                    description=ad.get("description"),
+                                    platforms=ad.get("platforms"),
+                                    geo=req_model.get("country"),
+                                    facebook_url=ad.get("url"),
+                                    created_at=ad.get("created_at"),
+                                    type=req_model.get("ad_type"),
+                                    page_id=ad.get("page_id"),
+                                    media_url=ad.get("media_url"),
+                                    app_url=ad.get("app_url"),
+                                    button=ad.get("button")
                                 )
+                            )
 
-                                # Update search cursor for the next page of this combination
-                                search_cursor_for_combo = result_dict.get("after")
+                    if not new_cursor:
+                        logging.info(f"No more ads for combination {req_model}.")
+                        break
 
-                                if not search_cursor_for_combo and page_num < pages_to_cache - 1:
-                                    logging.info(
-                                        f"No more ads for current combination after page {page_num + 1}. Stopping caching for this combination.")
-                                    break  # No more ads for this combination
+                    search_cursor = new_cursor  # важливо: оновлюємо курсор
+                except Exception as e:
+                    logging.exception(f"Error during caching for {req_model}: {e}")
+                    break
 
-                                await asyncio.sleep(
-                                    0.5)  # Small delay between page fetches to avoid rate limits/overload
+    # Комбінації
+    all_tasks = []
+    for geo in COUNTRY_TO_LANG_CODE.keys():
+        for ad_type in ("image", "video"):
+            base_request_params = {
+                "niche": "gambling",
+                "placements": ["instagram", "facebook", "audience_network", "threads", "messenger"],
+                "country": geo,
+                "ad_type": ad_type,
+                "period": "year",
+            }
+            # ⬇️ Кожна комбінація — окремий таск
+            # all_tasks.append(
+            #     _fetch_and_cache_pages_for_combination(base_request_params, pages_to_cache=10)
+            # )
+            await _fetch_and_cache_pages_for_combination(req_model=base_request_params)
 
-                            except Exception as e:
-                                logging.error(
-                                    f"Error caching combination {req_model.niche}/{req_model.country}/Page {page_num + 1}: {e}")
-                                break  # Stop caching this combination on error
-
-                    # Add the task to the list, ensure it's awaited by asyncio.gather later
-                    combination_tasks.append(
-                        _fetch_and_cache_pages_for_combination(creative_request_model, session)
-                    )
-
-                    # Use asyncio.gather to run all combination caching tasks concurrently
-                    # This will wait for all of them to complete.
-                logging.info(f"Launched {len(combination_tasks)} background caching tasks.")
-                await asyncio.gather(*combination_tasks,
-                                     return_exceptions=True)  # return_exceptions=True to see all errors
-                logging.info("Finished one full cycle of background caching.")
+    logging.info(f"Launching {len(all_tasks)} background caching tasks.")
+    # results = await asyncio.gather(*all_tasks, return_exceptions=True)
+    # logging.info(f"Completed caching. Results: {results}")
+    return {"ok": True}

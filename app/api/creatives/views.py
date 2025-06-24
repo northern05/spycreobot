@@ -11,16 +11,32 @@ logger = logging.getLogger('creatives/views')
 
 
 @router.get(
-    "",
+    "/keyword",
     status_code=status.HTTP_200_OK,
     response_model=dict,
 )
-async def get_all_creatives(
+async def get_keyword_creatives(
         result: dict = Depends(dependencies.get_creatives)
 ):
     """
     Endpoint to get creatives over user
-    :param session: session to connect to database
+    :param result:
+    :return: list creatives
+    """
+    return result
+
+
+@router.get(
+    "",
+    status_code=status.HTTP_200_OK,
+    response_model=dict,
+)
+async def get_all(
+        result: dict = Depends(dependencies.get_all)
+):
+    """
+    Endpoint to get creatives over user
+    :param result:
     :return: list creatives
     """
     return result
@@ -32,8 +48,8 @@ async def get_gif():
     return gif_path
 
 
-@router.get(
-    "/cash_ads",
+@router.post(
+    "/update_ads",
     status_code=status.HTTP_200_OK,
     response_model=dict,
 )

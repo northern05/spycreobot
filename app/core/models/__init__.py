@@ -4,7 +4,8 @@ __all__ = (
     "Base",
     "Credits",
     "Transaction",
-    "Pin"
+    "Pin",
+    "Creative"
 )
 
 from .base import Base
@@ -13,3 +14,4 @@ from .user import User
 from .credits import Credits
 from .transactions import Transaction
 from .pins import Pin
+from .creative import Creative

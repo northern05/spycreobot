@@ -21,13 +21,14 @@ class FacebookAdsLibraryDriver:
             app_id: str,
             app_secret: str,
             access_token: str,
-            api_url: str = "https://graph.facebook.com/v19.0/ads_archive",
+            api_url: str = "https://graph.facebook.com/v22.0/ads_archive",
     ):
         self.access_token = access_token
         self.api_url = api_url
         self.client = httpx.AsyncClient(timeout=30)
         self.app_id = app_id
         self.app_secret = app_secret
+        self.semaphore = asyncio.Semaphore(5)
 
         self.browser = None
         self.context = None
@@ -50,7 +51,7 @@ class FacebookAdsLibraryDriver:
         })
 
     async def exchange_token(self) -> str:
-        url = "https://graph.facebook.com/v19.0/oauth/access_token"
+        url = "https://graph.facebook.com/v22.0/oauth/access_token"
         params = {
             "grant_type": "fb_exchange_token",
             "client_id": self.app_id,
@@ -82,70 +83,52 @@ class FacebookAdsLibraryDriver:
             "week": timedelta(days=7),
             "month": timedelta(days=30),
             "quarter": timedelta(days=90),
-            "half_year": timedelta(days=180)  # Changed 'halfyear' to 'half_year' for consistency
+            "half_year": timedelta(days=180),
+            "year": timedelta(days=365)
         }.get(period, timedelta(days=7))
         return (today - delta).strftime("%Y-%m-%d")
-
-    def is_commercial_tracking_link(self, url: str) -> bool:
-        try:
-            parsed = urlparse(url)
-            domain = parsed.netloc.lower()
-            full_url = url.lower()
-
-            forbidden_domains = [
-                "facebook.com", "l.facebook.com", "play.google.com", "apps.apple.com",
-                "app.adjust.com", "doubleclick.net"
-            ]
-            if any(d in domain for d in forbidden_domains):
-                return False
-
-            suspicious_tlds = [".shop", ".online", ".click", ".quest", ".vip", ".xyz", ".life"]
-            if not any(domain.endswith(tld) for tld in suspicious_tlds):
-                return False
-
-            tracking_keywords = [
-                "sub_id", "sub1", "sub2", "lead_id", "campaign.name", "ad.id",
-                "adset.name", "placement", "pixel", "fbclid", "open_pwa", "key="
-            ]
-            if not any(kw in full_url for kw in tracking_keywords):
-                return False
-
-            return True
-        except Exception as e:
-            print(f"[⚠️] Error checking URL: {e}")
-            return False
 
     async def _fetch_ads(self, params: dict) -> Dict[str, Any]:
         retries = 3
         retry_delay = 1
         for attempt in range(1, retries + 1):
-            try:
-                response = await self.client.get(self.api_url, params=params)
-                response.raise_for_status()
-                return response.json()
-            except httpx.HTTPStatusError as e:
-                if e.response.status_code in (401, 400) and attempt < retries:
-                    try:
-                        logging.info(f"HTTP Error {e.response.status_code}. Attempting token refresh and retry...")
-                        self.access_token = await self.exchange_token()
-                        params["access_token"] = self.access_token
-                    except Exception as refresh_error:
-                        logging.error(f"Token refresh failed: {refresh_error}")
-                        raise Exception("Failed to refresh access token") from refresh_error
-                else:
-                    logging.error(f"HTTP error {e.response.status_code}: {e.response.text}")
-                    raise Exception(f"HTTP error {e.response.status_code}: {e.response.text}") from e
-            except httpx.RequestError as e:
-                logging.warning(f"Request error: {e}. Attempt {attempt}/{retries}. Retrying in {retry_delay}s...")
-                if attempt < retries:
-                    await asyncio.sleep(retry_delay)
-                    retry_delay *= 1.1
-                else:
-                    logging.error(f"Failed to fetch Facebook Ads after {retries} attempts: {e}")
-                    raise Exception(f"Failed to fetch Facebook Ads after {retries} attempts: {e}") from e
-            except Exception as e:
-                logging.exception(f"Unexpected error during _fetch_ads: {e}")
-                raise Exception(f"Failed to fetch Facebook Ads: {e}") from e
+            async with self.semaphore:
+                try:
+                    response = await self.client.get(self.api_url, params=params)
+                    response.raise_for_status()
+                    return response.json()
+                except httpx.HTTPStatusError as e:
+                    if e.response.status_code in (401, 400) and attempt < retries:
+                        try:
+                            logging.info(f"HTTP Error {e.response.status_code}. Attempting token refresh and retry...")
+                            self.access_token = await self.exchange_token()
+                            params["access_token"] = self.access_token
+                        except Exception as refresh_error:
+                            logging.error(f"Token refresh failed: {refresh_error}")
+                            raise Exception("Failed to refresh access token") from refresh_error
+                    else:
+                        logging.error(f"HTTP error {e.response.status_code}: {e.response.text}")
+                        raise Exception(f"HTTP error {e.response.status_code}: {e.response.text}") from e
+                except httpx.RequestError as e:
+                    logging.warning(f"Request error: {e}. Attempt {attempt}/{retries}. Retrying in {retry_delay}s...")
+                    if attempt < retries:
+                        await asyncio.sleep(retry_delay)
+                        retry_delay *= 1.1
+                    else:
+                        logging.error(f"Failed to fetch Facebook Ads after {retries} attempts: {e}")
+                        raise Exception(f"Failed to fetch Facebook Ads after {retries} attempts: {e}") from e
+                except httpx.PoolTimeout as e:
+                    logging.error(f"Connection pool timeout on attempt {attempt}: {e}")
+                    if attempt < retries:
+                        await asyncio.sleep(retry_delay)
+                        retry_delay *= 1.1
+                    else:
+                        raise Exception(
+                            f"PoolTimeout: Failed to get connection from pool after {retries} attempts") from e
+                except Exception as e:
+                    logging.exception(f"Unexpected error during _fetch_ads: {e}")
+                    raise Exception(f"Failed to fetch Facebook Ads: {e}") from e
+
         raise Exception(f"Failed to fetch Facebook Ads after {retries} attempts.")
 
     async def _search_single_term_ads(
@@ -229,7 +212,7 @@ class FacebookAdsLibraryDriver:
 
         # Add all combinations from NICHE_KEYWORDS_COMBINATIONS for each relevant niche
         for i, combo in enumerate(NICHE_KEYWORDS_COMBINATIONS.get(niche)):
-            term_string = ''.join([f"%E2%A0%80{word}%20" for word in combo])
+            term_string = ''.join([f"%20{word}" for word in combo])
             if keyword: term_string += f" %E2%A0%80{keyword}%20"
             generated_terms.append(term_string)
 
@@ -316,10 +299,10 @@ class FacebookAdsLibraryDriver:
                     f"Excluding ad ID {ad.get('id')} due to body length ({len(body)} >= {CONTENT_CHAR_LIMIT}).")
                 return None
 
-            media_url, app_url, cta_text = await self.extract(fb_ad_url=snapshot_url)
+            media_url, media_type, app_url, cta_text = await self.extract(fb_ad_url=snapshot_url)
             logging.info(
                 "=" * 100 + f"\nSNAPSHOT: {snapshot_url}\n MEDIA: {media_url}\n APP: {app_url}\n BUTTON: {cta_text}\n\n" + "=" * 100)
-            if not app_url or not self.is_pwa_url(app_url): return None
+            if not app_url or not cta_text or not self.is_pwa_url(app_url): return None
 
             return {
                 "id": ad_id,
@@ -329,8 +312,9 @@ class FacebookAdsLibraryDriver:
                 "platforms": ad_platforms,
                 "url": ad.get("ad_snapshot_url"),
                 "days_running": days_running,
+                "created_at": datetime.strptime(ad.get("ad_delivery_start_time"), "%Y-%m-%d"),
                 "raw_ad_data": ad,
-                "type": ad.get("ad_creative_media_type"),
+                "type": ad.get("ad_creative_media_type") if ad.get("ad_creative_media_type") else media_type,
                 "page_id": ad.get("page_id"),
                 "media_url": media_url,
                 "app_url": app_url,
@@ -386,7 +370,7 @@ class FacebookAdsLibraryDriver:
             seen_urls = set()
             logging.info("Starting new unique ad search from scratch.")
 
-        api_fetch_limit = max(page_size, 100)
+        api_fetch_limit = max(page_size, 15)
 
         # Initialize ads_chunk and next_combination_index before the loop/try block
         ads_chunk = []
@@ -467,7 +451,7 @@ class FacebookAdsLibraryDriver:
 
         return emoji_pattern.sub(r'', text)
 
-    async def extract(self, fb_ad_url: str) -> tuple[str | None, str | None, str | None]:
+    async def extract(self, fb_ad_url: str) -> tuple[Any, Any, str | None, Any | None]:
         media_urls = []
         cta_text = None
         decoded = None
@@ -487,7 +471,7 @@ class FacebookAdsLibraryDriver:
             except Exception:
                 return False
 
-        def choose_best_media(sources: list[str]) -> str | None:
+        def choose_best_media(sources: list[str]) -> tuple | None:
             def is_valid_video(url):
                 return ".mp4" in url and "video" in url and "fbcdn.net" in url
 
@@ -500,17 +484,17 @@ class FacebookAdsLibraryDriver:
 
             videos = list(filter(is_valid_video, sources))
             if videos:
-                return max(videos, key=len)
+                return max(videos, key=len), "video"
 
             images = list(filter(is_valid_image, sources))
             if images:
-                return max(images, key=extract_size_score)
+                return max(images, key=extract_size_score), "image"
 
             return None
 
         if not is_snapshot_url_valid(fb_ad_url):
             print(f"[❌] Snapshot URL is not accessible: {fb_ad_url}")
-            return None, None, None
+            return None, None, None, None
 
         page = await self.context.new_page()
 
@@ -526,12 +510,13 @@ class FacebookAdsLibraryDriver:
 
         try:
             await page.goto(fb_ad_url, wait_until="domcontentloaded", timeout=60000)
-            await page.wait_for_timeout(3000)
+            await page.wait_for_timeout(5000)
         except Exception as e:
             print(f"[❌] Exception during page.goto: {e}")
-            return None, None, None
+            return None, None, None, None
 
         try:
+            await page.wait_for_selector("a[href]", timeout=10000)
             links = await page.query_selector_all('a[href*="l.facebook.com/l.php?u="]')
             for link in links:
                 href = await link.get_attribute("href")
@@ -541,19 +526,21 @@ class FacebookAdsLibraryDriver:
                 parsed = urlparse(href)
                 qs = parse_qs(parsed.query)
                 decoded = unquote(qs.get("u", [""])[0])
+                if not decoded: return None, None, None, None
 
                 all_divs = await link.query_selector_all("div")
                 for div in all_divs:
                     text = (await div.inner_text()).strip()
                     if text and 2 <= len(text) <= 30 and any(k in text.lower() for k in COMMERCIAL_KEYWORDS):
                         cta_text = text
+                if not cta_text: return None, None, None, None
         except Exception as e:
             print(f"[⚠️] Failed to eval links: {e}")
 
         await page.close()
 
-        best_media = choose_best_media(media_urls)
-        return best_media, decoded, cta_text
+        best_media, media_type = choose_best_media(media_urls)
+        return best_media, media_type, decoded, cta_text
 
     def is_pwa_url(self, url: str) -> bool:
         url = url.lower()
@@ -571,8 +558,9 @@ class FacebookAdsLibraryDriver:
 
         # 2. PWA сигнатури
         tracking_keywords = [
-            "sub_id", "sub1", "sub2", "lead_id", "campaign.name", "ad.id",
-            "adset.name", "placement", "pixel", "fbclid", "open_pwa", "key=", "media_source"
+            "sub_id", "sub1", "sub2", "lead_id", "campaign.name", "ad.id", "offer_id", "aff_id", "click_id", "campaign"
+                                                                                                             "adset.name",
+            "placement", "pixel", "fbclid", "open_pwa", "key=", "media_source", "pwa"
         ]
         suspicious_tlds = [".shop", ".online", ".click", ".quest", ".vip", ".xyz", ".life", ".site", ".fun", ".casino"]
         pwa_indicators = ["pwa", "webapp", "type=pwa", "open_pwa"]
@@ -594,7 +582,7 @@ class FacebookAdsLibraryDriver:
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BOwEZBdKOe1ZCbPB5pzYp6MF48k5W1dSv9uEQNs5ptp2ZBHDS4WJVnIhlnzffpOh4HJtqZBrAJ94bHsZCiuNad0AAnGwm7CYyT5uSAT1cGZCUph0yI1R6qFSYg209iUY5II2WdUATPIo0eUqcNn3LDBA8VZC8Kc4ZB0nSZBCEbCYFP8dcuyqPdmZBNyeXQi1eEM87FQhzorGhUq5dwwJWEtpUqBJF3Q2XZCKFQZDZD",
+            access_token="EAAKCNpvlGQ8BO84ZALrdCHFtm7kyCQsQL7cUW0XOyHlasma22XiQ5aJd8pmQFetutZCy3eEaFwFgdQULzMTwv0XDRMiEj7XPUb8HsKDJn2rjKMbJMFEj1H6nNTTnvvRUc4lMo7jPa4Xkqkbj9EezYsKcxt25wxHUXJsXXJYypft6Xk7kTknJxSCUOKpjvdHC2dh5Ms6C02BVnsKQ7D4fwoDfQPuzDict3bniy0lGI0tY5ndtAO",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"
@@ -612,6 +600,7 @@ if __name__ == '__main__':
                 niche="gambling",  # Now specifically gambling
                 placements=["facebook", "instagram", "audience_network", "threads", "messenger"],
                 ad_type="video",
+                country="GB",
                 period="month",
                 # keyword="casino",  # Broad keyword for gambling
             )

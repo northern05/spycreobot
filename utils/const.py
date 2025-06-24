@@ -1,4 +1,4 @@
-CONTENT_CHAR_LIMIT = 3000
+CONTENT_CHAR_LIMIT = 300
 
 COMMERCIAL_KEYWORDS = {
     "download", "install", "play", "грати", "играть", "jugar", "jouer", "spielen", "giocare", "jogar", "grać", "oyna",
@@ -50,45 +50,33 @@ NICHE_KEYWORDS_COMBINATIONS = {
         ["click", "install", "bonus"],
         ["win", "cash", "today"],
         ["lucky", "spin", "win"],
-        ["withdraw", "real", "money"],
         ["bonus", "offer", "claim"],
         ["get", "now", "bonus"],
 
         # 🎲 Казино, ігрові додатки
         ["free", "spins", "casino"],
-        ["slots", "real", "money"],
-        ["jackpot", "game", "casino"],
-        ["live", "casino", "app"],
-        ["777", "slots", "win"],
+        ["slots", "real", "app"],
+        ["game", "casino", "win"],
         ["new", "casino", "bonus"],
 
         # 🔥 CPA/PWA + aggressive funnel
         ["tap", "install", "now"],
         ["open", "pwa", "casino"],
-        ["instant", "access", "play"],
+        ["instant", "play", "start"],
         ["fast", "bonus", "cash"],
         ["play", "game", "web"],
         ["pwa", "bonus", "real"],
-        ["start", "now", "cash"],
 
         # 💸 Виплати, довіра, виграші
-        ["fast", "payout", "cashout"],
-        ["instant", "withdrawal", "cash"],
-        ["real", "money", "withdraw"],
+        ["fast","instant", "withdrawal"],
         ["deposit", "bonus", "now"],
-        ["verification", "no", "needed"],
+        ["verification", "payout", "needed"],
         ["no", "email", "required"],
 
         # 🧲 Lead/Pixel trigger combinations
         ["lead", "pixel", "sub_id"],
         ["campaign", "id", "click"],
         ["ad", "placement", "bonus"],
-
-        # 🏆 Промо і конкурси
-        ["promo", "spin", "free"],
-        ["limited", "offer", "today"],
-        ["exclusive", "bonus", "now"],
-        ["lucky", "bonus", "claim"],
 
         # 📱 Мобільні зв’язки
         ["casino", "pwa", "app"],
