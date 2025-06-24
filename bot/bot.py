@@ -591,6 +591,7 @@ async def send_creos(
             else:
                 user_data = await state.get_data()
                 params = {
+                    "telegram_id": json.get("telegram_id"),
                     "niche__ilike": json.get("niche"),
                     "created_at__gte": calculate_date_filter(json.get("period")),
                     "page_number": user_data.get("page_number") if user_data.get("page_number") else 1,
