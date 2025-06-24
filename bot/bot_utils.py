@@ -3,6 +3,7 @@ import logging
 import os
 import re
 
+from datetime import datetime, timedelta
 import httpx
 import requests
 import string
@@ -147,9 +148,9 @@ async def send_and_update_timer(bot: Bot, chat_id: int, initial_duration: int = 
 
 async def _update_timer_task(bot: Bot, chat_id: int, message_id: int, duration: int, interval: int):
     timer_msg = await bot.send_message(
-            chat_id=chat_id,
-            text=f"Start counting!"
-        )
+        chat_id=chat_id,
+        text=f"Start counting!"
+    )
     for remaining_time in range(duration - interval, -1, -interval):
         try:
             if remaining_time > 0:
@@ -187,3 +188,13 @@ async def _update_timer_task(bot: Bot, chat_id: int, message_id: int, duration: 
         logging.error(f"Msg not exists {str(e.args)}")
     logging.info(f"Timer task for {chat_id}:{message_id} completed its internal countdown.")
 
+
+def calculate_date_filter(period: str) -> str:
+    delta = {
+        "week": timedelta(days=7),
+        "month": timedelta(days=30),
+        "quarter": timedelta(days=90),
+        "half_year": timedelta(days=180),
+        "year": timedelta(days=365)
+    }.get(period, timedelta(days=7))
+    return (datetime.utcnow().date() - delta).strftime("%Y-%m-%d")

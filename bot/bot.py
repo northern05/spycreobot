@@ -368,7 +368,8 @@ async def proceed_creative_search(message: types.Message, state: FSMContext):
         "country": data.get("country"),
         "ad_type": data.get("ad_type"),
         "period": data.get("period"),
-        "keyword": data.get("keyword")
+        "keyword": data.get("keyword"),
+        "created_at": calculate_date_filter(data.get("period"))
     }
 
     await send_creos(
@@ -393,6 +394,7 @@ async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
         "period": state_data.get("period"),
         "keyword": state_data.get("keyword"),
         "search_cursor": state_data.get("search_cursor"),
+        "created_at": calculate_date_filter(state_data.get("period")),
         "page_number": state_data.get("page_number")
     }
 
@@ -415,6 +417,7 @@ async def pin_search(message: types.Message, state: FSMContext):
         "ad_type": data.get("ad_type"),
         "period": data.get("period"),
         "keyword": data.get("keyword"),
+        "created_at": calculate_date_filter(data.get("period"))
     }
     response = requests.post(url=f"{API_URL}/pins", json=json, params={"telegram_id": str(telegram_id)})
     if response.status_code == 200:
@@ -490,7 +493,7 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
     placements = selected_pin.get("placements", [])
     country = selected_pin.get("country", [])
     ad_type = selected_pin.get("ad_type", "all")  # Default 'all'
-    period = selected_pin.get("period", "week")  # Default 'week'
+    period = selected_pin.get("period", "year")  # Default 'week'
     keyword = selected_pin.get("keyword")
     data = {
         "telegram_id": str(callback.from_user.id),
@@ -500,6 +503,7 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
         "ad_type": ad_type,
         "period": period,
         "keyword": keyword,
+        "created_at": calculate_date_filter(selected_pin.get("period")),
     }
     await state.update_data(data)
     await send_creos(
