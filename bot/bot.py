@@ -641,13 +641,15 @@ async def send_creos(
             button: str = creative.get("button")
             title: str = creative.get("title")
             ad_type = creative.get("type")
+            geo = creative.get("geo")
             keyboard = InlineKeyboardMarkup(
                 inline_keyboard=[[
                     InlineKeyboardButton(text="🔗 Open Ad in Browser", url=url),
                     InlineKeyboardButton(text="Get similar", callback_data=f"get_similar:{page_id}")
                 ]]
             )
-            caption = f"Title: {title}\n" \
+            caption = f"Country: #{geo}\n"\
+                      f"Title: {title}\n" \
                       f"Placements: {', '.join(platforms_mapping.get(p) for p in platforms)}\n" \
                       f"Days running: {days_running}\n" \
                       f"Button: {button}"

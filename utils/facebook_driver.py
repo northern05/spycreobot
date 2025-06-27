@@ -452,9 +452,11 @@ class FacebookAdsLibraryDriver:
             return None, None, None, None
 
         try:
-            await page.wait_for_selector("a[href]", timeout=10000)
-            links = await page.query_selector_all('a[href*="l.facebook.com/l.php?u="]')
-            for link in links:
+            await page.evaluate("window.scrollBy(0, 3000)") 
+            await page.wait_for_timeout(1000)
+            links = await page.query_selector_all('a[href]:not([role="button"])')
+            visible_links = [link for link in links if await link.is_visible()]
+            for link in visible_links:
                 href = await link.get_attribute("href")
                 if not href:
                     continue
