@@ -528,7 +528,7 @@ class FacebookAdsLibraryDriver:
         if "/pwa" in parsed.path or "lite" in url:
             score += 1
 
-        return score >= 2
+        return score >= 1
 
 
 if __name__ == '__main__':
