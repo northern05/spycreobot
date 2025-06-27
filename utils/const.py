@@ -1,5 +1,101 @@
 CONTENT_CHAR_LIMIT = 500
 
+base_phrases = [
+    ["no deposit bonus"],
+    ["100 free spins"],
+    ["play slots online"],
+    ["vip offer today"],
+    ["withdraw fbp game"]
+]
+
+# Translations with 2 local phrases per language + base phrases
+translations = {
+    "EN": base_phrases,
+    "CH": [["bonus sans dépôt"], ["100 tours gratuits"]],
+    "FR": [["bonus sans dépôt"], ["100 tours gratuits"]],
+    "ES": [["bono sin depósito"], ["100 giros gratis"]],
+    "PL": [["bonus bez depozytu"], ["100 darmowych spinów"]],
+    "UA": [["бонус без депозиту"], ["100 безкоштовних обертань"]],
+    "PT": [["bonus sem depósito"], ["jogar slots online"]],
+    "RO": [["bonus fără depozit"], ["joacă slots online"]],
+    "NL": [["bonus zonder storting"], ["speel slots online"]],
+    "DE": [["bonus ohne einzahlung"], ["100 freispiele"]],
+    "IT": [["bonus senza deposito"], ["100 giri gratis"]],
+    "TR": [["bonus yatırma yok"], ["slots oyna online"]],
+    "MD": [["bonus fără depozit"], ["joacă slots online"]],
+    "BE": [["bonus sans dépôt"], ["100 tours gratuits"]],
+    "AT": [["bonus ohne einzahlung"], ["100 freispiele"]],
+    "LU": [["bonus ohne einzahlung"], ["100 freispiele"]],
+    "LI": [["bonus ohne einzahlung"], ["100 freispiele"]],
+    "SM": [["bonus senza deposito"], ["100 giri gratis"]],
+    "MC": [["bonus sans dépôt"], ["100 tours gratuits"]],
+    "VA": [["bonus senza deposito"], ["100 giri gratis"]],
+    "MX": [["bono sin depósito"], ["100 giros gratis"]],
+    "AR": [["bono sin depósito"], ["100 giros gratis"]],
+    "CL": [["bono sin depósito"], ["100 giros gratis"]],
+    "CO": [["bono sin depósito"], ["100 giros gratis"]],
+    "PE": [["bono sin depósito"], ["100 giros gratis"]],
+    "EC": [["bono sin depósito"], ["100 giros gratis"]],
+    "UY": [["bono sin depósito"], ["100 giros gratis"]],
+    "VE": [["bono sin depósito"], ["100 giros gratis"]],
+    "PY": [["bono sin depósito"], ["100 giros gratis"]],
+    "BO": [["bono sin depósito"], ["100 giros gratis"]],
+    "DO": [["bono sin depósito"], ["100 giros gratis"]],
+    "CR": [["bono sin depósito"], ["100 giros gratis"]],
+    "GT": [["bono sin depósito"], ["100 giros gratis"]],
+    "HN": [["bono sin depósito"], ["100 giros gratis"]],
+    "NI": [["bono sin depósito"], ["100 giros gratis"]],
+    "PA": [["bono sin depósito"], ["100 giros gratis"]],
+    "SV": [["bono sin depósito"], ["100 giros gratis"]],
+    "JP": [["入金不要 bonus"], ["オンラインで slots をプレイ"]],
+    "KR": [["입금 없이 bonus"], ["온라인에서 slots 게임"]],
+    "ID": [["bonus tanpa deposit"], ["main slots online"]],
+    "MY": [["bonus tanpa deposit"], ["main slots online"]]
+}
+
+# Map languages to countries
+language_map = {
+    "EN": {"GB", "US", "CA", "AU", "NZ", "IE"},
+    "DE": {"DE", "AT", "CH", "LU", "LI"},
+    "IT": {"IT", "SM", "VA"},
+    "FR": {"FR", "BE", "CH", "LU", "MC"},
+    "ES": {"ES", "MX", "AR", "CL", "CO", "PE", "EC", "UY", "VE", "PY", "BO", "DO", "CR", "GT", "HN", "NI", "PA", "SV", "CU"},
+    "PL": {"PL"},
+    "UA": {"UA"},
+    "PT": {"PT", "BR"},
+    "TR": {"TR"},
+    "RO": {"RO", "MD"},
+    "NL": {"NL", "BE", "SR", "AW", "CW"},
+    "JP": {"JP"},
+    "KR": {"KR"},
+    "ID": {"ID"},
+    "MY": {"MY"}
+}
+
+# All countries
+all_countries = {"GB", "AL", "AD", "AT", "BE", "BA", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GI", "GR",
+                 "HU", "IS", "IE", "IT", "LV", "LI", "LT", "LU", "MT", "MD", "MC", "ME", "NL", "MK", "NO", "PL", "PT",
+                 "RO", "SM", "RS", "SK", "SI", "ES", "SE", "CH", "UA", "VA", "IM", "FO", "AX", "JE", "TR", "CA", "MX",
+                 "AR", "BO", "BR", "CL", "CO", "CR", "CU", "DO", "EC", "GT", "HN", "JM", "NI", "PA", "PE", "PY", "SV",
+                 "UY", "VE", "BZ", "HT", "TT", "BS", "LC", "VC", "DM", "GD", "AG", "KN", "BB", "GY", "AE", "AF", "AM",
+                 "AZ", "BH", "GE", "IL", "IQ", "IN", "ID", "IR", "JO", "JP", "KZ", "KW", "KG", "LB", "LK", "MY", "MV",
+                 "MN", "NP", "OM", "PK", "PH", "QA", "SA", "SG", "KR", "SY", "TJ", "TH", "TL", "TM", "UZ", "VN",
+                 "YE", "AU", "NZ", "FJ", "PG", "WS", "TO", "TV", "VU", "NR", "FM", "MH", "PW", "SB"}
+
+# Ensure all translations include EN base phrases
+for lang, phrases in translations.items():
+    if lang == "EN":
+        continue
+    local_phrases = [p for p in phrases if p not in base_phrases]
+    reduced = local_phrases[:2] + base_phrases
+    translations[lang] = reduced
+
+# Build country to keywords mapping
+COUNTRY_TO_KEYWORDS = {}
+for country in all_countries:
+    lang = next((lang for lang, countries in language_map.items() if country in countries), "EN")
+    COUNTRY_TO_KEYWORDS[country] = translations[lang]
+
 COMMERCIAL_KEYWORDS = {
     "download", "install", "play", "грати", "играть", "jugar", "jouer", "spielen", "giocare", "jogar", "grać", "oyna",
     "spelen", "spela", "プレイ", "玩", "العب", "खेलें", "재생", "main", "main", "hrát", "завантажити", "встановити",
@@ -9,120 +105,15 @@ COMMERCIAL_KEYWORDS = {
     "स्थापित करें", "다운로드", "설치하다", "unduh", "pasang", "muat turun", "pasang", "stáhnout", "nainstalovat"
 }
 
-COUNTRY_TO_LANG_CODE = {
-    'BR': 'pt', 'MX': 'es', 'AR': 'es', 'CO': 'es', 'CL': 'es', 'PE': 'es', 'VE': 'es',
-    'BO': 'es', 'CR': 'es', 'DO': 'es', 'EC': 'es', 'GT': 'es', 'HN': 'es', 'NI': 'es',
-    'PA': 'es', 'PY': 'es', 'SV': 'es', 'UY': 'es', 'PR': 'es', 'PS': 'ar',
-    'DZ': 'ar', 'EG': 'ar', 'IQ': 'ar', 'JO': 'ar', 'KW': 'ar', 'LB': 'ar', 'LY': 'ar',
-    'MA': 'ar', 'OM': 'ar', 'QA': 'ar', 'SA': 'ar', 'TN': 'ar', 'AE': 'ar',
-    'YE': 'ar', 'KM': 'ar', 'MR': 'ar', 'SO': 'so', 'CN': 'zh', 'HK': 'zh', 'MO': 'zh',
-    'TW': 'zh', 'JP': 'ja', 'KR': 'ko', 'IN': 'hi', 'ID': 'id', 'MY': 'ms', 'PK': 'ur',
-    'FJ': 'en', 'VU': 'bi', 'TO': 'to', 'WS': 'sm', 'TZ': 'sw', 'XK': 'sq', 'SS': 'en',
-    'FM': 'en', 'MH': 'en', 'NR': 'en', 'PW': 'en', 'TV': 'tvl', 'AO': 'pt', 'CV': 'pt',
-    'GW': 'pt', 'MZ': 'pt', 'ST': 'pt', 'TL': 'pt', 'HT': 'fr', 'SN': 'fr', 'TG': 'fr',
-    'BJ': 'fr', 'BF': 'fr', 'CD': 'fr', 'CF': 'fr', 'CM': 'fr', 'CI': 'fr', 'CG': 'fr',
-    'GA': 'fr', 'GN': 'fr', 'ML': 'fr', 'NE': 'fr', 'RE': 'fr', 'RW': 'rw', 'TF': 'fr',
-    'WF': 'fr', 'YT': 'fr', 'AM': 'hy', 'AZ': 'az', 'GE': 'ka', 'KG': 'ky', 'KZ': 'kk',
-    'MN': 'mn', 'TJ': 'tg', 'TM': 'tk', 'UZ': 'uz', 'BI': 'fr', 'ER': 'ti', 'GM': 'en',
-    'LS': 'st', 'MG': 'mg', 'MW': 'ny', 'NC': 'fr', 'NU': 'niu',
-
-    'US': 'en', 'GB': 'en', 'CA': 'en', 'AU': 'en', 'IE': 'en', 'NZ': 'en', 'ZA': 'en', 'SG': 'en',
-    'PH': 'en', 'KE': 'en', 'GH': 'en', 'ZM': 'en', 'ZW': 'en', 'UG': 'en', 'TT': 'en', 'BS': 'en',
-    'JM': 'en', 'BB': 'en', 'LC': 'en', 'VC': 'en', 'DM': 'en', 'GD': 'en', 'AG': 'en', 'KN': 'en',
-    'BZ': 'en', 'VI': 'en', 'AW': 'nl', 'BM': 'en', 'KY': 'en', 'TC': 'en', 'VG': 'en', 'AI': 'en',
-    'GY': 'en', 'MS': 'en', 'MU': 'en', 'NA': 'en', 'NF': 'en', 'PG': 'en', 'PN': 'en', 'SB': 'en',
-    'SC': 'en', 'SH': 'en', 'SL': 'en', 'SZ': 'en', 'TK': 'en', 'UM': 'en', 'BD': 'bn', 'TH': 'th',
-    'VN': 'vi', 'MM': 'my', 'NP': 'ne', 'LK': 'si', 'DE': 'de', 'FR': 'fr', 'ES': 'es', 'IT': 'it',
-    'PT': 'pt', 'NL': 'nl', 'BE': 'nl', 'CH': 'de', 'FO': 'fo', 'AX': 'sv', 'UA': 'uk', 'IM': 'en',
-    'AT': 'de', 'PL': 'pl', 'CZ': 'cs', 'SK': 'sk', 'HU': 'hu', 'RO': 'ro', 'GR': 'el', 'SE': 'sv',
-    'NO': 'no', 'DK': 'da', 'FI': 'fi', 'IS': 'is', 'TR': 'tr', 'BG': 'bg', 'HR': 'hr', 'RS': 'sr',
-    'SI': 'sl', 'BA': 'bs', 'AL': 'sq', 'MK': 'mk', 'LT': 'lt', 'LV': 'lv', 'EE': 'et', 'CY': 'el',
-    'LU': 'fr', 'JE': 'en',
-
-}
-
 NICHE_KEYWORDS_COMBINATIONS = {
     "gambling": [
-        ["bonus", "casino", "live"],
-        ["free", "spins", "now"],
-        ["play", "slots", "online"],
-        ["register", "bonus", "win"],
-        ["no", "download", "required"],
-        ["vip", "offer", "today"],
-        ["daily", "spin", "reward"],
-        ["classic", "slots", "win"],
-        ["slot", "machine", "fun"],
-        ["mega", "win", "spin"],
-        ["roulette", "spin", "deal"],
-        ["install", "slot", "app"],
-        ["realistic", "casino", "slots"],
-        ["free", "game"],
-        ["tournament", "bonus", "prize"],
-        ["jackpot", "live", "spin"],
-        ["tap", "play", "slots"],
-        ["big", "win", "slots"],
-        ["exclusive", "slots", "today"],
-
-        ["pwa", "play", "game"],
-        ["mobile", "slots", "pwa"],
-        ["android", "casino", "app"],
-        ["slot", "pwa", "install"],
-        ["lite", "casino", "game"],
-        ["play", "app", "bonus"],
-        ["web", "slots", "app"],
-        ["tap", "start", "game"],
-        ["browser", "game", "slot"],
-        ["instant", "slots", "pwa"],
-
-        ["bonus", "spin", "today"],
-        ["claim", "reward", "now"],
-        ["play", "get", "reward"],
-        ["click", "spin", "start"],
-        ["get", "free", "spins"],
-        ["bonus", "spin", "code"],
-        ["download", "slot", "app"],
-        ["exclusive", "claim", "offer"],
-        ["instant", "win", "slots"],
-        ["fun", "game", "slots"],
-
-        ["slot", "bonus"],
-        ["casino"],
-        ["free", "spins"],
-        ["register", "bonus"],
-        ["vip", "offer"],
-        ["daily", "spin"],
-        ["classic", "slots"],
-        ["slot", "machine"],
-        ["mega", "spin"],
-        ["roulette", "deal"],
-        ["install", "app"],
-        ["realistic", "slots"],
-        ["free", "game"],
-        ["tournament", "bonus"],
-        ["tap", "slots"],
-        ["big", "slots"],
-        ["exclusive", "slots"],
-        ["pwa", "play"],
-        ["mobile", "slots"],
-        ["android", "casino"],
-        ["slot", "pwa"],
-        ["lite", "casino"],
-        ["play", "bonus"],
-        ["web", "slots"],
-        ["tap", "start"],
-        ["browser", "game"],
-        ["instant", "slots"],
-        ["bonus", "today"],
-        ["claim", "reward"],
-        ["play", "reward"],
-        ["click", "start"],
-        ["get", "spins"],
-        ["bonus", "code"],
-        ["download", "app"],
-        ["exclusive", "offer"],
-        ["instant", "win"],
-        ["fun", "slots"]
-
+        ["no deposit bonus"],
+        ["100 free spins"],
+        ["cashout fast"],
+        ["slotmania", "free chips"],
+        ["gratis", "spiel", "jetzt"],
+        ["gioca", "gratis", "subito"],
+        ["casino", "dinero real", "gratis"],
     ],
     "crypto": [
         ["crypto", "nft"],

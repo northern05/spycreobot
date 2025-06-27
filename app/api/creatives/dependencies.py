@@ -121,7 +121,7 @@ async def update_all_creatives():
 
     # Комбінації
     all_tasks = []
-    for geo in COUNTRY_TO_LANG_CODE.keys():
+    for geo in COUNTRY_TO_KEYWORDS.keys():
         for ad_type in ("image", "video"):
             base_request_params = {
                 "niche": "gambling",
