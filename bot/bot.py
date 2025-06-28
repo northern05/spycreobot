@@ -251,8 +251,8 @@ async def get_creatives(callback: types.CallbackQuery, state: FSMContext):
     ])
 
     geo_msg = await callback.message.answer(
-        f"🌍 Please enter geo code (e.g. `US`, `PH`, `DE`) or press *Skip*:",
-        reply_markup=keyboard,
+        f"🌍 Please enter geo code (e.g. `US`, `PH`, `DE`):",
+        # reply_markup=keyboard,
         parse_mode="Markdown"
     )
     await state.set_state(CreativesState.choose_country)
@@ -282,17 +282,17 @@ async def handle_geo_input(message: types.Message, state: FSMContext):
     await message.answer("📸 Choose ad types:", reply_markup=keyboard)
 
 
-@tg_router.callback_query(F.data == "skip_geo")
-async def handle_skip_geo(callback: types.CallbackQuery, state: FSMContext):
-    await callback.message.delete()
-    await state.update_data({"country": None})
-    await state.set_state(CreativesState.choose_type)
-
-    types_ = ["image", "video", "all"]
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text=t.capitalize(), callback_data=f"media:{t}") for t in types_]]
-    )
-    await callback.message.answer("📸 Choose ad types:", reply_markup=keyboard)
+# @tg_router.callback_query(F.data == "skip_geo")
+# async def handle_skip_geo(callback: types.CallbackQuery, state: FSMContext):
+#     await callback.message.delete()
+#     await state.update_data({"country": None})
+#     await state.set_state(CreativesState.choose_type)
+#
+#     types_ = ["image", "video", "all"]
+#     keyboard = InlineKeyboardMarkup(
+#         inline_keyboard=[[InlineKeyboardButton(text=t.capitalize(), callback_data=f"media:{t}") for t in types_]]
+#     )
+#     await callback.message.answer("📸 Choose ad types:", reply_markup=keyboard)
 
 
 @tg_router.callback_query(CreativesState.choose_type)
@@ -387,7 +387,9 @@ async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
         "ad_type": state_data.get("ad_type"),
         "period": state_data.get("period"),
         "keyword": state_data.get("keyword"),
-        "search_cursor": state_data.get("search_cursor")
+        "search_cursor": state_data.get("search_cursor"),
+        "page_number": state_data.get("page_number", 0) + 1,
+        "page_size": state_data.get("page_size", 10),
     }
 
     await send_creos(
@@ -538,7 +540,7 @@ async def similar_search(callback: types.CallbackQuery, state: FSMContext):
 
 
 @tg_router.callback_query(F.data == "next_similar_search")
-async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
+async def next_similar_search(callback: types.CallbackQuery, state: FSMContext):
     telegram_id = callback.message.from_user.id if str(
         callback.message.from_user.id) != SELF_ID else callback.message.chat.id
     user_data = await state.get_data()
@@ -548,6 +550,8 @@ async def next_ads_search(callback: types.CallbackQuery, state: FSMContext):
         "page_id": str(user_data.get("page_id")),
         "search_cursor": user_data.get("search_cursor"),
         "niche": user_data.get("niche"),
+        "page_number": user_data.get("page_number", 0) + 1,
+        "page_size": user_data.get("page_size", 10),
     }
     await send_creos(
         json=json,
@@ -629,8 +633,8 @@ async def send_creos(
             await state.update_data({"search_cursor": search_cursor})
         else:
             await state.update_data({
-                "page_number": response_data.get("page_size"),
-                "page_size": response_data.get("page_number"),
+                "page_number": response_data.get("page_number"),
+                "page_size": response_data.get("page_size"),
             })
         for creative in ads:
             url = creative.get('facebook_url')

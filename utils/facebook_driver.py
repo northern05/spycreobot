@@ -146,7 +146,7 @@ class FacebookAdsLibraryDriver:
         params = {
             "access_token": self.access_token,
             "search_terms": search_term,
-            "ad_reached_countries": country if country else ",".join(SUPPORTED_COUNTRIES),
+            "ad_reached_countries": country if country else ",".join(COUNTRY_TO_KEYWORDS.keys()),
             "ad_active_status": "ACTIVE",
             "media_type": ad_type.upper() if ad_type else "ALL",
             "fields": ",".join([
@@ -235,14 +235,10 @@ class FacebookAdsLibraryDriver:
             if days_running < 0: days_running = 0
 
             if len(body) >= CONTENT_CHAR_LIMIT:
-                logging.info(
-                    f"Excluding ad ID {ad.get('id')} due to body length ({len(body)} >= {CONTENT_CHAR_LIMIT}).")
                 return None
 
             media_url, media_type, app_url, cta_text = await self.extract(fb_ad_url=snapshot_url)
-            logging.info(
-                "=" * 100 + f"\nSNAPSHOT: {snapshot_url}\n MEDIA: {media_url}\n APP: {app_url}\n BUTTON: {cta_text}\n\n" + "=" * 100)
-            if not app_url or not cta_text or not self.is_pwa_url(app_url): return None
+            if not app_url or not cta_text: return None
 
             return {
                 "id": ad_id,
@@ -259,6 +255,7 @@ class FacebookAdsLibraryDriver:
                 "media_url": media_url,
                 "app_url": app_url,
                 "button": cta_text,
+                "score": self.is_pwa_url(app_url)
             }
         except Exception as e:
             logging.exception(f"Unexpected error in _format_ad for ad ID {ad.get('id')}: {e}")
@@ -353,8 +350,6 @@ class FacebookAdsLibraryDriver:
 
         while current_combination_index < len(generated_terms):
             search_term = generated_terms[current_combination_index]
-            logging.info(f"[🔍] Searching with term: '{search_term}' (Index {current_combination_index})")
-
             ads_for_term, next_cursor_for_term = await self._search_single_term_ads(
                 search_term=search_term,
                 placements=placements,
@@ -365,6 +360,7 @@ class FacebookAdsLibraryDriver:
                 after=current_cursor,
                 page_id=page_id
             )
+            logging.info(f"[🔍] Searched with term: '{search_term}' (Count: {len(ads_for_term)})")
 
             if ads_for_term:
                 return ads_for_term, next_cursor_for_term, current_combination_index
@@ -490,7 +486,7 @@ class FacebookAdsLibraryDriver:
         best_media, media_type = choose_best_media(media_urls)
         return best_media, media_type, decoded, cta_text
 
-    def is_pwa_url(self, url: str) -> bool:
+    def is_pwa_url(self, url: str) -> int:
         url = url.lower()
         parsed = urlparse(url)
         domain = parsed.netloc
@@ -509,10 +505,10 @@ class FacebookAdsLibraryDriver:
         if "play.google.com" in domain and "/store/apps/details" in parsed.path:
             query = parse_qs(parsed.query)
             if "id" in query and query["id"][0]:
-                return False
+                return 1
 
         if "apps.apple.com" in domain and "/app/" in parsed.path:
-            return False
+            return 1
 
         score = 0
 
@@ -526,15 +522,15 @@ class FacebookAdsLibraryDriver:
             score += 3
 
         if "/pwa" in parsed.path or "lite" in url:
-            score += 1
+            score += 5
 
-        return score >= 1
+        return score
 
 
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BO9tSmQFnCdultZB4ICpeqZCRVGZCmlJoe5ZA5QZCYNcaqJrwOJ0lEhbBEsrE7HB5jbho2EfVWQzKOOu0NttJLjgV980YtifnLLGC7KKlMwIOM1bmZAixyZARzgDpNZBKGZC6DbfXdyu1oFHGTzJM8HXiuZCZA0kZBZCC958yofyYNeWvOt4l03qIgF39tdurMLRzb8T9Ra2oGVoJG4PwIK1JDoM5ykHsAyVfe9xZAZCb4xZAj9vm",
+            access_token="EAAKCNpvlGQ8BO2V8H2n8N49QLkClstSsOsgMEsK3Y6PHIHCAYSTJmGU8YX7iEd7MBGRDwPfwpSpLhb71vlbXMs4NiiBt5DcQzZBAXkECZCzcQZCMXafD1p4RR6gMGVM6MR1clo1nhJ6m12qPe69hZCReiN5GIB8HT4PiuEtYZC2b6zCMZB5D75JehGPYUcW3FI6NZCkZCO9Vr8aR2lzgDbPDJBgcUZCgr9kzZB2AK1N0AvM3Wnl51WHTP2ngZDZD",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"
@@ -546,13 +542,13 @@ if __name__ == '__main__':
 
             # --- First Page (e.g., 4 ads per page) ---
             print("\n--- Page 1 (Gambling) ---")
-            page_size = 10  # Request 4 ads per page
+            page_size = 100  # Request 4 ads per page
             ads_page1, search_cursor_page1 = await driver.get_ads_page(
                 page_size=page_size,
                 niche="gambling",  # Now specifically gambling
                 placements=["facebook", "instagram", "audience_network", "threads", "messenger"],
                 ad_type="video",
-                country="DE",
+                country="GB",
                 period="month",
                 # keyword="casino",  # Broad keyword for gambling
             )

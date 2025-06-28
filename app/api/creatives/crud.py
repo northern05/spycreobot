@@ -81,6 +81,6 @@ class CreativeFilter(FilterCore):
 
     def get_select_query_part(self):
         return (
-            select(Creative).order_by(Creative.created_at.desc())
+            select(Creative).order_by(Creative.score.desc())
         )
 

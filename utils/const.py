@@ -1,11 +1,34 @@
-CONTENT_CHAR_LIMIT = 500
+CONTENT_CHAR_LIMIT = 400
 
 base_phrases = [
-    ["no deposit bonus"],
-    ["100 free spins"],
+    ["free spins"],
     ["play slots online"],
-    ["vip offer today"],
-    ["withdraw fbp game"]
+    ["casino", "win", "game"],
+    ["slot", "register", "lucky"],
+    ["download", "register", "bonus"],
+    ["deposit bonus verification"],
+    ["bonus play"],
+    ["instant withdrawal spins"],
+
+    # 📱 Мобільні додатки, Android traffic
+    ["mobile","casino","app"],
+    ["app","mobile", "slots"],
+
+    # 💸 Виплати, кешбек, фінансові теми
+    ["withdraw,deposit,claim"],
+    ["offer,deposit,cash"],
+
+    # 💡 Промо-терміни, бонуси
+    ["bonus,win,now"],
+    ["promo,spin,free"],
+    ["exclusive,offer,limited"],
+    ["big,prize,today"],
+    ["unlimited,chance,today"],
+
+    # 🎲 Класичні азартні ігри (менш рекламні, більше контентні)
+    ["blackjack,poker,game"],
+    ["roulette,baccarat,card"],
+    ["slots,machines,online"],
 ]
 
 # Translations with 2 local phrases per language + base phrases

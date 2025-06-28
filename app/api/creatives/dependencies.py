@@ -106,7 +106,8 @@ async def update_all_creatives():
                                     page_id=ad.get("page_id"),
                                     media_url=ad.get("media_url"),
                                     app_url=ad.get("app_url"),
-                                    button=ad.get("button")
+                                    button=ad.get("button"),
+                                    score=ad.get("score")
                                 )
                             )
 
@@ -128,8 +129,8 @@ async def update_all_creatives():
                 "placements": ["instagram", "facebook", "audience_network", "threads", "messenger"],
                 "country": geo,
                 "ad_type": ad_type,
-                "period": "halfyear",
-                "page_size": 70
+                "period": "year",
+                "page_size": 100
             }
             # all_tasks.append(
             #     _fetch_and_cache_pages_for_combination(base_request_params, pages_to_cache=10)
