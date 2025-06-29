@@ -463,17 +463,26 @@ class FacebookAdsLibraryDriver:
                 if not decoded:
                     continue
 
-                # for selector in button_like_selectors:
-                #     buttons = await link.query_selector_all(selector)
-                #     for btn in buttons:
-                #         text = (await btn.inner_text()).strip().lower()
-                #         if any(k in text for k in COMMERCIAL_KEYWORDS):
-                #             cta_text = text
-                #             break
-                #     if cta_text:
-                #         break
-                button = await link.query_selector('div[role="button"], a[role="button"], button')
-                cta_text = (await button.inner_text()).strip().lower() if button else None
+                button_elements = await link.query_selector_all('[role="button"]')
+
+                for btn in button_elements:
+                    # Витягуємо весь текст з button-елемента
+                    raw_text = (await btn.inner_text()).strip().lower()
+
+                    # Перевіряємо чи він має ключові слова
+                    if any(kw in raw_text for kw in COMMERCIAL_KEYWORDS):
+                        cta_text = raw_text
+                        break
+
+                # Якщо нічого не знайдено, спробуй знайти .inner_text() по span'у або div всередині кнопки
+                if not cta_text and button_elements:
+                    for btn in button_elements:
+                        deep_span = await btn.query_selector("span, div")
+                        if deep_span:
+                            deep_text = (await deep_span.inner_text()).strip().lower()
+                            if any(kw in deep_text for kw in COMMERCIAL_KEYWORDS):
+                                cta_text = deep_text
+                                break
                 if decoded and cta_text:
                     break
 
