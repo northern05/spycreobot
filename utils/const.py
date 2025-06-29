@@ -119,7 +119,7 @@ for country in all_countries:
     COUNTRY_TO_KEYWORDS[country] = translations[lang]
 
 COMMERCIAL_KEYWORDS = {
-    "download", "install", "play"
+    "download", "install", "play", "use app"
 }
 
 button_like_selectors = [

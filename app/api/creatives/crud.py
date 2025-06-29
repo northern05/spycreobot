@@ -53,17 +53,9 @@ async def get_all(
 
 async def check_creative(
         session: AsyncSession,
-        app_url: str,
-        facebook_id: str,
-        title: str):
+        facebook_id: str
+):
     conditions = [Creative.facebook_id == facebook_id]
-
-    if app_url:
-        conditions.append(Creative.app_url == app_url)
-
-    if title:
-        conditions.append(Creative.title == title)
-
     stmt = select(Creative).filter(or_(*conditions))
     result: Result = await session.execute(stmt)
     creative = result.scalars().first()

@@ -296,13 +296,9 @@ class FacebookAdsLibraryDriver:
                 break
 
             for ad in ads_chunk:
-                content_hash = hashlib.md5(ad.get("body", "").encode('utf-8')).hexdigest()
-                if ad["id"] not in seen_ad_ids and content_hash not in seen_content_hashes and ad[
-                    "app_url"] not in seen_urls:
+                if ad["id"] not in seen_ad_ids:
                     all_collected_ads.append(ad)
                     seen_ad_ids.add(ad["id"])
-                    seen_content_hashes.add(content_hash)
-                    seen_urls.add(ad["app_url"])
                     if len(all_collected_ads) >= page_size and not exhaustive:
                         break
 
@@ -462,27 +458,25 @@ class FacebookAdsLibraryDriver:
                 decoded = unquote(qs.get("u", [""])[0])
                 if not decoded:
                     continue
+                await page.wait_for_selector('div[role="button"]', timeout=10000)
 
-                button_elements = await link.query_selector_all('[role="button"]')
+                button_elements = await page.query_selector_all('div[role="button"]')
 
                 for btn in button_elements:
-                    # Витягуємо весь текст з button-елемента
-                    raw_text = (await btn.inner_text()).strip().lower()
+                    await btn.scroll_into_view_if_needed()
+                    try:
+                        text = await btn.inner_text()
+                    except:
+                        continue
 
-                    # Перевіряємо чи він має ключові слова
-                    if any(kw in raw_text for kw in COMMERCIAL_KEYWORDS):
-                        cta_text = raw_text
+                    if not text:
+                        continue
+
+                    text = text.strip().lower()
+
+                    if text in COMMERCIAL_KEYWORDS:
+                        cta_text = text
                         break
-
-                # Якщо нічого не знайдено, спробуй знайти .inner_text() по span'у або div всередині кнопки
-                if not cta_text and button_elements:
-                    for btn in button_elements:
-                        deep_span = await btn.query_selector("span, div")
-                        if deep_span:
-                            deep_text = (await deep_span.inner_text()).strip().lower()
-                            if any(kw in deep_text for kw in COMMERCIAL_KEYWORDS):
-                                cta_text = deep_text
-                                break
                 if decoded and cta_text:
                     break
 
@@ -527,7 +521,7 @@ class FacebookAdsLibraryDriver:
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BOZCk6YNYLj3vwAtlUNVKAgRfClXCygojxe561vxKBbx1K0tdJULimknIAUtS7YEctLQXjJmPGA25n3y85QtTAvWEBbL0BOsx4ZAFvm0IjWEK0Mh84yZBcIwvucrWwv0Y0aBBmXNMybpVAZBDgpfTPFvOWa0O4Y4XgW6a1oC1mCebK7mvggjfxY8ZCZAcnOMQzF5a4TZBntdYZAImGgN4ITy5BGy4GnY8mB2ugzhCfBTBEQZDZD",
+            access_token="EAAKCNpvlGQ8BO6yt4ZARZCGZC5jOZCpLp0IpU53rZChOYZAEhrz2aBJtiygikkhZCM6fZAF816mcXf3KyjvGyjSjJocYGCqZAhHWRSj0l6YC4L0F9XWfnGtNJzcQNOGc0HTloaZCZBE1DCMvZC56D0LZC12Gz0YHNPFAZBz0ZBezk0FC7vSHJ4xhp7ccSFipDc9xtb0kZCISjCHN4ZAjVUwdZAM63lzdmUX5fDpV1ZCf2F18ZBfR8xTQ4z09Btg6dmYF",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"

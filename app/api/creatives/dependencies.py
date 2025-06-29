@@ -86,9 +86,7 @@ async def update_all_creatives():
                     for ad in ads:
                         existing_creative = await crud.check_creative(
                             session=current_session,
-                            app_url=ad.get("app_url"),
                             facebook_id=str(ad.get("id")),
-                            title=ad.get("title")
                         )
                         if not existing_creative:
                             await crud.create(
