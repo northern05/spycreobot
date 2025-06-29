@@ -1,34 +1,33 @@
 CONTENT_CHAR_LIMIT = 400
 
 base_phrases = [
-    ["free spins"],
-    ["play slots online"],
+    ["free", "spins", "play"],
+    ["play", "slots", "online"],
     ["casino", "win", "game"],
     ["slot", "register", "lucky"],
     ["download", "register", "bonus"],
-    ["deposit bonus verification"],
-    ["bonus play"],
-    ["instant withdrawal spins"],
+    ["deposit", "bonus", "verification"],
+    ["bonus", "play", "spins"],
 
     # 📱 Мобільні додатки, Android traffic
     ["mobile","casino","app"],
     ["app","mobile", "slots"],
 
     # 💸 Виплати, кешбек, фінансові теми
-    ["withdraw,deposit,claim"],
-    ["offer,deposit,cash"],
+    ["withdraw","deposit","claim"],
+    ["offer","deposit","cash"],
 
     # 💡 Промо-терміни, бонуси
-    ["bonus,win,now"],
-    ["promo,spin,free"],
-    ["exclusive,offer,limited"],
-    ["big,prize,today"],
-    ["unlimited,chance,today"],
+    ["bonus","win","now"],
+    ["promo","spin","free"],
+    ["exclusive","offer","limited"],
+    ["big","prize","today"],
+    ["unlimited",'chance',"today"],
 
     # 🎲 Класичні азартні ігри (менш рекламні, більше контентні)
-    ["blackjack,poker,game"],
-    ["roulette,baccarat,card"],
-    ["slots,machines,online"],
+    ["blackjack","poker","game"],
+    ["roulette","baccarat","card"],
+    ["slots","machines","online"],
 ]
 
 # Translations with 2 local phrases per language + base phrases
@@ -120,13 +119,16 @@ for country in all_countries:
     COUNTRY_TO_KEYWORDS[country] = translations[lang]
 
 COMMERCIAL_KEYWORDS = {
-    "download", "install", "play", "грати", "играть", "jugar", "jouer", "spielen", "giocare", "jogar", "grać", "oyna",
-    "spelen", "spela", "プレイ", "玩", "العب", "खेलें", "재생", "main", "main", "hrát", "завантажити", "встановити",
-    "скачать", "установить", "descargar", "instalar", "télécharger", "installer", "herunterladen", "installieren",
-    "scaricare", "installare", "baixar", "instalar", "pobrać", "zainstalować", "indir", "yükle", "downloaden",
-    "installeren", "ladda ner", "installera", "ダウンロードする", "インストールする", "下载", "安装", "تنزيل", "تثبيت", "डाउनलोड करें",
-    "स्थापित करें", "다운로드", "설치하다", "unduh", "pasang", "muat turun", "pasang", "stáhnout", "nainstalovat"
+    "download", "install", "play"
 }
+
+button_like_selectors = [
+    'button',
+    'a[role="button"]',
+    'div[role="button"]',
+    'div[class*="button"]',
+    'span[class*="button"]'
+]
 
 NICHE_KEYWORDS_COMBINATIONS = {
     "gambling": [

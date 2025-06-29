@@ -49,4 +49,5 @@ class CreativeCreate(BaseModel):
     media_url: str
     app_url: str
     button: str | None = None
+    score: int
 

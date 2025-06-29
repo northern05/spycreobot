@@ -255,7 +255,7 @@ class FacebookAdsLibraryDriver:
                 "media_url": media_url,
                 "app_url": app_url,
                 "button": cta_text,
-                "score": self.is_pwa_url(app_url)
+                "score": self.rate_ad(link=app_url, text=cta_text)
             }
         except Exception as e:
             logging.exception(f"Unexpected error in _format_ad for ad ID {ad.get('id')}: {e}")
@@ -340,7 +340,7 @@ class FacebookAdsLibraryDriver:
         generated_terms = []
 
         for combo in COUNTRY_TO_KEYWORDS.get(country):
-            term_string = ' '.join(combo)
+            term_string =  ' '.join(combo) #' '.join(combo)
             if keyword:
                 term_string += f" {keyword}"
             generated_terms.append(term_string)
@@ -463,18 +463,17 @@ class FacebookAdsLibraryDriver:
                 if not decoded:
                     continue
 
-                all_divs = await link.query_selector_all("div")
-                possible_texts = set()
-                for div in all_divs:
-                    text = (await div.inner_text()).strip()
-                    if text and 2 <= len(text) <= 30:
-                        possible_texts.add(text)
-                        if any(k in text.lower() for k in COMMERCIAL_KEYWORDS):
-                            cta_text = text
-                            break
-                if not cta_text and possible_texts:
-                    cta_text = next(iter(possible_texts))
-
+                # for selector in button_like_selectors:
+                #     buttons = await link.query_selector_all(selector)
+                #     for btn in buttons:
+                #         text = (await btn.inner_text()).strip().lower()
+                #         if any(k in text for k in COMMERCIAL_KEYWORDS):
+                #             cta_text = text
+                #             break
+                #     if cta_text:
+                #         break
+                button = await link.query_selector('div[role="button"], a[role="button"], button')
+                cta_text = (await button.inner_text()).strip().lower() if button else None
                 if decoded and cta_text:
                     break
 
@@ -486,51 +485,40 @@ class FacebookAdsLibraryDriver:
         best_media, media_type = choose_best_media(media_urls)
         return best_media, media_type, decoded, cta_text
 
-    def is_pwa_url(self, url: str) -> int:
-        url = url.lower()
-        parsed = urlparse(url)
-        domain = parsed.netloc
-
-        tracking_keywords = [
-            "sub_id", "sub1", "sub2", "lead_id", "campaign.name", "ad.id", "offer_id", "aff_id",
-            "click_id", "campaign", "adset.name", "placement", "pixel", "fbclid", "open_pwa",
-            "key=", "media_source", "pwa"
-        ]
-        suspicious_tlds = [
-            ".shop", ".online", ".click", ".quest", ".vip", ".xyz", ".life", ".site", ".fun", ".casino",
-            ".bet", ".game", ".win"
-        ]
-        pwa_indicators = ["pwa", "webapp", "type=pwa", "open_pwa"]
-
-        if "play.google.com" in domain and "/store/apps/details" in parsed.path:
-            query = parse_qs(parsed.query)
-            if "id" in query and query["id"][0]:
-                return 1
-
-        if "apps.apple.com" in domain and "/app/" in parsed.path:
-            return 1
-
+    @staticmethod
+    def rate_ad(link: str, text: str = "") -> int:
         score = 0
 
-        if any(domain.endswith(tld) for tld in suspicious_tlds):
-            score += 2
+        # 🚫 Very low score if link goes to social media
+        if any(domain in link for domain in [
+            "facebook.com", "instagram.com", "tiktok.com", "twitter.com"
+        ]):
+            return 1  # Almost worthless ad
 
-        if any(kw in url for kw in tracking_keywords):
-            score += 2
+        # ⚠️ Medium score for App Store or Play Store ads
+        if "play.google.com" in link or "apps.apple.com" in link:
+            return 3  # Download link, not PWA
 
-        if any(indicator in url for indicator in pwa_indicators):
+        # ✅ Highest score for real PWA (installable, usually no store links)
+        if ".apk" in link or "pwa" in link or "webapp" in link or "install" in text.lower():
+            score += 7  # Strong PWA indicators
+
+        # ✅ If it’s a domain without app store reference, and link ends with /
+        if link.startswith("https://") and not any(store in link for store in ["play.google", "apple.com"]):
+            score += 2  # Web-based
+
+        # Bonus if the ad mentions “play instantly”, “no download”, “browser”
+        bonus_keywords = ["no download", "play now", "browser", "instant", "web only", "lightweight"]
+        if any(kw in text.lower() for kw in bonus_keywords):
             score += 3
 
-        if "/pwa" in parsed.path or "lite" in url:
-            score += 5
-
-        return score
+        return min(score, 10)
 
 
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BO2V8H2n8N49QLkClstSsOsgMEsK3Y6PHIHCAYSTJmGU8YX7iEd7MBGRDwPfwpSpLhb71vlbXMs4NiiBt5DcQzZBAXkECZCzcQZCMXafD1p4RR6gMGVM6MR1clo1nhJ6m12qPe69hZCReiN5GIB8HT4PiuEtYZC2b6zCMZB5D75JehGPYUcW3FI6NZCkZCO9Vr8aR2lzgDbPDJBgcUZCgr9kzZB2AK1N0AvM3Wnl51WHTP2ngZDZD",
+            access_token="EAAKCNpvlGQ8BOZCk6YNYLj3vwAtlUNVKAgRfClXCygojxe561vxKBbx1K0tdJULimknIAUtS7YEctLQXjJmPGA25n3y85QtTAvWEBbL0BOsx4ZAFvm0IjWEK0Mh84yZBcIwvucrWwv0Y0aBBmXNMybpVAZBDgpfTPFvOWa0O4Y4XgW6a1oC1mCebK7mvggjfxY8ZCZAcnOMQzF5a4TZBntdYZAImGgN4ITy5BGy4GnY8mB2ugzhCfBTBEQZDZD",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"
@@ -542,7 +530,7 @@ if __name__ == '__main__':
 
             # --- First Page (e.g., 4 ads per page) ---
             print("\n--- Page 1 (Gambling) ---")
-            page_size = 100  # Request 4 ads per page
+            page_size = 10  # Request 4 ads per page
             ads_page1, search_cursor_page1 = await driver.get_ads_page(
                 page_size=page_size,
                 niche="gambling",  # Now specifically gambling
