@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from sqlalchemy import select, func, or_
 from fastapi_sa_orm_filter.main import FilterCore
@@ -51,11 +52,25 @@ async def get_all(
     return response
 
 
+def extract_oe_hash(url: str) -> str | None:
+    match = re.search(r"oe=([A-Za-z0-9]+)", url)
+    return match.group(1) if match else None
+
+
 async def check_creative(
         session: AsyncSession,
-        facebook_id: str
+        facebook_id: str,
+        media_url: str
 ):
     conditions = [Creative.facebook_id == facebook_id]
+
+    if media_url:
+        oe_hash = extract_oe_hash(media_url)
+        if oe_hash:
+            conditions.append(
+                Creative.media_url.ilike(f"%oe={oe_hash}")
+            )
+
     stmt = select(Creative).filter(or_(*conditions))
     result: Result = await session.execute(stmt)
     creative = result.scalars().first()
@@ -76,4 +91,3 @@ class CreativeFilter(FilterCore):
         return (
             select(Creative).order_by(Creative.score.desc())
         )
-

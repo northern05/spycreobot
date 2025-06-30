@@ -282,11 +282,9 @@ class FacebookAdsLibraryDriver:
             seen_content_hashes = set()
             seen_urls = set()
 
-        api_fetch_limit = max(page_size, 30)
-
         while len(all_collected_ads) < page_size or exhaustive:
             ads_chunk, next_cursor_for_term, next_combination_index = await self._orchestrate_search_terms(
-                api_call_limit=api_fetch_limit,
+                api_call_limit=page_size,
                 start_combination_index=current_keyword_combination_index,
                 start_cursor=current_cursor,
                 **search_params

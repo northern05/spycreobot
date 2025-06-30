@@ -1,7 +1,7 @@
 CONTENT_CHAR_LIMIT = 400
 
 base_phrases = [
-    ["free", "spins", "play"],
+    ["freespin", "play"],
     ["play", "slots", "online"],
     ["casino", "win", "game"],
     ["slot", "register", "lucky"],
