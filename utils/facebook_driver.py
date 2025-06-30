@@ -442,8 +442,25 @@ class FacebookAdsLibraryDriver:
             return None, None, None, None
 
         try:
-            await page.evaluate("window.scrollBy(0, 3000)") 
+            await page.evaluate("window.scrollBy(0, 3000)")
             await page.wait_for_timeout(1000)
+
+            # Пошук всіх кнопок одразу
+            button_elements = await page.query_selector_all('div[role="button"]')
+            for btn in button_elements:
+                try:
+                    await btn.scroll_into_view_if_needed()
+                    text = await btn.inner_text()
+                    if not text:
+                        continue
+                    clean_text = text.strip().lower()
+                    if clean_text in COMMERCIAL_KEYWORDS:
+                        cta_text = clean_text
+                        break
+                except Exception:
+                    continue
+
+            # Тепер переходимо до лінків
             links = await page.query_selector_all('a[href]:not([role="button"])')
             visible_links = [link for link in links if await link.is_visible()]
             for link in visible_links:
@@ -454,28 +471,7 @@ class FacebookAdsLibraryDriver:
                 parsed = urlparse(href)
                 qs = parse_qs(parsed.query)
                 decoded = unquote(qs.get("u", [""])[0])
-                if not decoded:
-                    continue
-                await page.wait_for_selector('div[role="button"]', timeout=10000)
-
-                button_elements = await page.query_selector_all('div[role="button"]')
-
-                for btn in button_elements:
-                    await btn.scroll_into_view_if_needed()
-                    try:
-                        text = await btn.inner_text()
-                    except:
-                        continue
-
-                    if not text:
-                        continue
-
-                    text = text.strip().lower()
-
-                    if text in COMMERCIAL_KEYWORDS:
-                        cta_text = text
-                        break
-                if decoded and cta_text:
+                if decoded:
                     break
 
         except Exception as e:
@@ -519,7 +515,7 @@ class FacebookAdsLibraryDriver:
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BO6yt4ZARZCGZC5jOZCpLp0IpU53rZChOYZAEhrz2aBJtiygikkhZCM6fZAF816mcXf3KyjvGyjSjJocYGCqZAhHWRSj0l6YC4L0F9XWfnGtNJzcQNOGc0HTloaZCZBE1DCMvZC56D0LZC12Gz0YHNPFAZBz0ZBezk0FC7vSHJ4xhp7ccSFipDc9xtb0kZCISjCHN4ZAjVUwdZAM63lzdmUX5fDpV1ZCf2F18ZBfR8xTQ4z09Btg6dmYF",
+            access_token="EAAKCNpvlGQ8BOxhctiw24KQ0VSL4Uje9EKXWLDyS6xvbmUPZBZAs0etAwuw3gYmoNPWZBwZCoFIw6Mj3R8jZCBDWu9kKAr240Cc2heJvug1lZC0uP7SlTgsU7NZAg9O9TcYdO4CrDvvApBchPWlfcbsYj50oRrarGqNqLNZANaBh2NnZAtjjn2e4NQ2xKzfVx9XNVveUddnvLW5CWamDoDe27xBoV8geGchBH1OET3XTOfhqZBivWor3ax5QZDZD",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"

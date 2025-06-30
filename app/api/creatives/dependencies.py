@@ -127,7 +127,7 @@ async def update_all_creatives():
             "placements": ["instagram", "facebook", "audience_network", "threads", "messenger"],
             "country": geo,
             "ad_type": "video",
-            "period": "year",
+            "period": "month",
             "page_size": 50
         }
         # all_tasks.append(
