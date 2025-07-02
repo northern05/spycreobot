@@ -590,7 +590,7 @@ async def send_creos(
                 params = {
                     "telegram_id": json.get("telegram_id"),
                     "objects_filter": objects_filter_str,
-                    "page_number": user_data.get("page_number") if user_data.get("page_number") else 1,
+                    "page_number": json.get("page_number") if json.get("page_number") else 1,
                     "page_size": 10
                 }
                 if json.get("country"): params.update({"geo__ilike": json.get("country")})
