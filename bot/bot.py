@@ -252,7 +252,7 @@ async def get_creatives(callback: types.CallbackQuery, state: FSMContext):
 
     geo_msg = await callback.message.answer(
         f"🌍 Please enter geo code (e.g. `US`, `PH`, `DE`):",
-        # reply_markup=keyboard,
+        reply_markup=keyboard,
         parse_mode="Markdown"
     )
     await state.set_state(CreativesState.choose_country)
@@ -282,17 +282,17 @@ async def handle_geo_input(message: types.Message, state: FSMContext):
     await message.answer("📸 Choose ad types:", reply_markup=keyboard)
 
 
-# @tg_router.callback_query(F.data == "skip_geo")
-# async def handle_skip_geo(callback: types.CallbackQuery, state: FSMContext):
-#     await callback.message.delete()
-#     await state.update_data({"country": None})
-#     await state.set_state(CreativesState.choose_type)
-#
-#     types_ = ["image", "video", "all"]
-#     keyboard = InlineKeyboardMarkup(
-#         inline_keyboard=[[InlineKeyboardButton(text=t.capitalize(), callback_data=f"media:{t}") for t in types_]]
-#     )
-#     await callback.message.answer("📸 Choose ad types:", reply_markup=keyboard)
+@tg_router.callback_query(F.data == "skip_geo")
+async def handle_skip_geo(callback: types.CallbackQuery, state: FSMContext):
+    await callback.message.delete()
+    await state.update_data({"country": None})
+    await state.set_state(CreativesState.choose_type)
+
+    types_ = ["image", "video", "all"]
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text=t.capitalize(), callback_data=f"media:{t}") for t in types_]]
+    )
+    await callback.message.answer("📸 Choose ad types:", reply_markup=keyboard)
 
 
 @tg_router.callback_query(CreativesState.choose_type)

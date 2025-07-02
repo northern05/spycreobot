@@ -121,15 +121,15 @@ async def update_all_creatives():
 
     all_tasks = []
     for geo in COUNTRY_TO_KEYWORDS.keys():
-        # for ad_type in ("video", "image"):
-        base_request_params = {
-            "niche": "gambling",
-            "placements": ["instagram", "facebook", "audience_network", "threads", "messenger"],
-            "country": geo,
-            "ad_type": "video",
-            "period": "month",
-            "page_size": 50
-        }
+        for ad_type in ("video", "image"):
+            base_request_params = {
+                "niche": "gambling",
+                "placements": ["instagram", "facebook", "audience_network", "threads", "messenger"],
+                "country": geo,
+                "ad_type": ad_type,
+                "period": "month",
+                "page_size": 50
+            }
         # all_tasks.append(
         #     _fetch_and_cache_pages_for_combination(base_request_params, pages_to_cache=10)
         # )
