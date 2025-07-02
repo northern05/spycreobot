@@ -1,7 +1,7 @@
 CONTENT_CHAR_LIMIT = 400
 
 base_phrases = [
-    ["freespin", "play"],
+    ["free", "spin", "play"],
     ["play", "slots", "online"],
     ["casino", "win", "game"],
     ["slot", "register", "lucky"],
@@ -119,7 +119,7 @@ for country in all_countries:
     COUNTRY_TO_KEYWORDS[country] = translations[lang]
 
 COMMERCIAL_KEYWORDS = {
-    "download", "install", "play", "use app"
+    "download", "install", "play", "use app", "play game", "learn more", "download app", "install app", "install now"
 }
 
 button_like_selectors = [

@@ -20,6 +20,7 @@ class Creative(Base):
     app_url: Mapped[str] = mapped_column(String)
     button: Mapped[str] = mapped_column(String)
     score: Mapped[int] = mapped_column(Integer)
+    media_unique_identifier: Mapped[str] = mapped_column(String, nullable=False, unique=True)
 
     def __repr__(self):
         return f"<Niche: {self.niche}, facebook_url {self.facebook_url}>"

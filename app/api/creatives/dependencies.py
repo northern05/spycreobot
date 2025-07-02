@@ -87,7 +87,8 @@ async def update_all_creatives():
                         existing_creative = await crud.check_creative(
                             session=current_session,
                             facebook_id=str(ad.get("id")),
-                            media_url=ad.get("media_url")
+                            media_unique_identifier=ad.get("media_url")[-8:],
+                            description=ad.get("body")
                         )
                         if not existing_creative:
                             await crud.create(
@@ -96,7 +97,7 @@ async def update_all_creatives():
                                     niche=req_model.get("niche"),
                                     facebook_id=str(ad.get("id")),
                                     title=ad.get("title"),
-                                    description=ad.get("description"),
+                                    description=ad.get("body"),
                                     platforms=ad.get("platforms"),
                                     geo=req_model.get("country"),
                                     facebook_url=ad.get("url"),
@@ -106,7 +107,8 @@ async def update_all_creatives():
                                     media_url=ad.get("media_url"),
                                     app_url=ad.get("app_url"),
                                     button=ad.get("button"),
-                                    score=ad.get("score")
+                                    score=ad.get("score"),
+                                    media_unique_identifier=ad.get("media_url")[-8:]
                                 )
                             )
 
@@ -121,7 +123,7 @@ async def update_all_creatives():
 
     all_tasks = []
     for geo in COUNTRY_TO_KEYWORDS.keys():
-        for ad_type in ("video", "image"):
+        for ad_type in ("video",):
             base_request_params = {
                 "niche": "gambling",
                 "placements": ["instagram", "facebook", "audience_network", "threads", "messenger"],

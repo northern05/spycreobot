@@ -445,7 +445,6 @@ class FacebookAdsLibraryDriver:
             await page.evaluate("window.scrollBy(0, 3000)")
             await page.wait_for_timeout(1000)
 
-            # Пошук всіх кнопок одразу
             button_elements = await page.query_selector_all('div[role="button"]')
             for btn in button_elements:
                 try:
@@ -515,7 +514,7 @@ class FacebookAdsLibraryDriver:
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BOxhctiw24KQ0VSL4Uje9EKXWLDyS6xvbmUPZBZAs0etAwuw3gYmoNPWZBwZCoFIw6Mj3R8jZCBDWu9kKAr240Cc2heJvug1lZC0uP7SlTgsU7NZAg9O9TcYdO4CrDvvApBchPWlfcbsYj50oRrarGqNqLNZANaBh2NnZAtjjn2e4NQ2xKzfVx9XNVveUddnvLW5CWamDoDe27xBoV8geGchBH1OET3XTOfhqZBivWor3ax5QZDZD",
+            access_token="EAAKCNpvlGQ8BOzZAtDAXmJnYwA2ZBZAauzDdsKyk2dLp7MsBN8CTOi7NB20ZApXycdJs38sEEwsXdEymk9M7ZByFadB7vfZCA3UDtwXIu3aCW4fUwRIV8IMB9iH3RVu6cv6dlJOv0qEozpLZCLrRcqxqLJJyOQc4ZBNuzZBUuf47DqjeZB8nh9NDcfCYYY9FrxhVtKm7X1JXVg5bEomqys84Kur5hMzxZCL7JCU0bQDXBQ7iwqPzUM2qjdFIAZDZD",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"
@@ -527,7 +526,7 @@ if __name__ == '__main__':
 
             # --- First Page (e.g., 4 ads per page) ---
             print("\n--- Page 1 (Gambling) ---")
-            page_size = 10  # Request 4 ads per page
+            page_size = 20  # Request 4 ads per page
             ads_page1, search_cursor_page1 = await driver.get_ads_page(
                 page_size=page_size,
                 niche="gambling",  # Now specifically gambling

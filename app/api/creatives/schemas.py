@@ -50,4 +50,5 @@ class CreativeCreate(BaseModel):
     app_url: str
     button: str | None = None
     score: int
+    media_unique_identifier: str
 
