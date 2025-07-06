@@ -123,13 +123,13 @@ async def update_all_creatives():
 
     all_tasks = []
     for geo in COUNTRY_TO_KEYWORDS.keys():
-        for ad_type in ("video",):
+        for ad_type in ("video", "image"):
             base_request_params = {
                 "niche": "gambling",
                 "placements": ["instagram", "facebook", "audience_network", "threads", "messenger"],
                 "country": geo,
                 "ad_type": ad_type,
-                "period": "month",
+                "period": "year",
                 "page_size": 50
             }
         # all_tasks.append(
