@@ -136,7 +136,7 @@ async def update_all_creatives():
         # all_tasks.append(
         #     _fetch_and_cache_pages_for_combination(base_request_params, pages_to_cache=10)
         # )
-        await _fetch_and_cache_pages_for_combination(req_model=base_request_params)
+            await _fetch_and_cache_pages_for_combination(req_model=base_request_params)
 
     logging.info(f"Launching {len(all_tasks)} background caching tasks.")
     # results = await asyncio.gather(*all_tasks, return_exceptions=True)

@@ -98,10 +98,10 @@ language_map = {
 all_countries = {"GB", "AL", "AD", "AT", "BE", "BA", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GI", "GR",
                  "HU", "IS", "IE", "IT", "LV", "LI", "LT", "LU", "MT", "MD", "MC", "ME", "NL", "MK", "NO", "PL", "PT",
                  "RO", "SM", "RS", "SK", "SI", "ES", "SE", "CH", "UA", "VA", "IM", "FO", "AX", "JE", "TR", "CA", "MX",
-                 "AR", "BO", "BR", "CL", "CO", "CR", "CU", "DO", "EC", "GT", "HN", "JM", "NI", "PA", "PE", "PY", "SV",
+                 "AR", "BO", "BR", "CL", "CO", "CR", "DO", "EC", "GT", "HN", "JM", "NI", "PA", "PE", "PY", "SV",
                  "UY", "VE", "BZ", "HT", "TT", "BS", "LC", "VC", "DM", "GD", "AG", "KN", "BB", "GY", "AE", "AF", "AM",
-                 "AZ", "BH", "GE", "IL", "IQ", "IN", "ID", "IR", "JO", "JP", "KZ", "KW", "KG", "LB", "LK", "MY", "MV",
-                 "MN", "NP", "OM", "PK", "PH", "QA", "SA", "SG", "KR", "SY", "TJ", "TH", "TL", "TM", "UZ", "VN",
+                 "AZ", "BH", "GE", "IL", "IQ", "IN", "ID", "JO", "JP", "KZ", "KW", "KG", "LB", "LK", "MY", "MV",
+                 "MN", "NP", "OM", "PK", "PH", "QA", "SA", "SG", "KR", "TJ", "TH", "TL", "TM", "UZ", "VN",
                  "YE", "AU", "NZ", "FJ", "PG", "WS", "TO", "TV", "VU", "NR", "FM", "MH", "PW", "SB"}
 
 # Ensure all translations include EN base phrases
