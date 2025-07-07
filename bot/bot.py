@@ -14,6 +14,7 @@ API_KEY: str = os.environ.get('TG_API_KEY', "tg_api_key")
 GIF_URL: str = "https://affhunter.net/bot/api/v1/creatives/get-gif"
 MAX_BUTTONS_PER_MESSAGE = 10
 SELF_ID = '7844930689'
+ADMIN_IDs = ('383803117', '214190724')
 
 PAYMENT_PLAN: dict = {5: 10, 50: 90, 250: 450}
 
@@ -561,12 +562,24 @@ async def next_similar_search(callback: types.CallbackQuery, state: FSMContext):
     )
 
 
+@tg_router.callback_query(F.data.startswith("delete_ad:"))
+async def delete_saved_pin(callback: types.CallbackQuery):
+    ad_id = callback.data.split(":")[1]
+    response = requests.delete(url=f"{API_URL}/creatives/{ad_id}")
+    if response.status_code == 200:
+        await callback.message.answer("AD successfully deleted!")
+    else:
+        await callback.message.answer("Something went wrong.")
+        await main_menu(callback.message)
+
+
 async def send_creos(
         json: dict,
         message: types.Message,
         state: FSMContext,
         similar: bool = False
 ):
+    user_tg_id = json.get("telegram_id")
     try:
         async with httpx.AsyncClient(timeout=1800) as client:
             if json.get("keyword") or json.get("similar"):
@@ -577,7 +590,6 @@ async def send_creos(
                     headers={"Content-Type": "application/json"}
                 )
             else:
-                user_data = await state.get_data()
                 filter_parts = [
                     f"niche__ilike={json.get('niche')}",
                     f"created_at__gte={calculate_date_filter(json.get('period'))}",
@@ -588,7 +600,7 @@ async def send_creos(
 
                 objects_filter_str = "&".join(filter_parts)
                 params = {
-                    "telegram_id": json.get("telegram_id"),
+                    "telegram_id": user_tg_id,
                     "objects_filter": objects_filter_str,
                     "page_number": json.get("page_number") if json.get("page_number") else 1,
                     "page_size": 10
@@ -637,6 +649,7 @@ async def send_creos(
                 "page_size": response_data.get("page_size"),
             })
         for creative in ads:
+            ad_id = creative.get('id')
             url = creative.get('facebook_url')
             media_url = creative.get('media_url')
             page_id = creative.get("page_id")
@@ -646,13 +659,22 @@ async def send_creos(
             title: str = creative.get("title")
             ad_type = creative.get("type")
             geo = creative.get("geo")
-            keyboard = InlineKeyboardMarkup(
-                inline_keyboard=[[
-                    InlineKeyboardButton(text="🔗 Open Ad in Browser", url=url),
-                    InlineKeyboardButton(text="Get similar", callback_data=f"get_similar:{page_id}")
-                ]]
-            )
-            caption = f"Country: #{geo}\n"\
+            if user_tg_id in ADMIN_IDs:
+                keyboard = InlineKeyboardMarkup(
+                    inline_keyboard=[[
+                        InlineKeyboardButton(text="🔗 Open Ad in Browser", url=url),
+                        InlineKeyboardButton(text="Get similar", callback_data=f"get_similar:{page_id}"),
+                        InlineKeyboardButton(text="Delete!", callback_data=f"delete_ad:{ad_id}")
+                    ]]
+                )
+            else:
+                keyboard = InlineKeyboardMarkup(
+                    inline_keyboard=[[
+                        InlineKeyboardButton(text="🔗 Open Ad in Browser", url=url),
+                        InlineKeyboardButton(text="Get similar", callback_data=f"get_similar:{page_id}")
+                    ]]
+                )
+            caption = f"Country: #{geo}\n" \
                       f"Title: {title}\n" \
                       f"Placements: {', '.join(platforms_mapping.get(p) for p in platforms)}\n" \
                       f"Days running: {days_running}\n" \

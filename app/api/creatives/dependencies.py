@@ -1,8 +1,9 @@
-import asyncio
 import logging
 import hashlib
 import json
-from fastapi import Depends
+from typing import Annotated
+
+from fastapi import Depends, Path
 from fastapi.params import Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -140,4 +141,12 @@ async def update_all_creatives():
     logging.info(f"Launching {len(all_tasks)} background caching tasks.")
     # results = await asyncio.gather(*all_tasks, return_exceptions=True)
     # logging.info(f"Completed caching. Results: {results}")
+    return {"ok": True}
+
+
+async def delete_ad(
+        ad_id: Annotated[int, Path],
+        session: AsyncSession = Depends(db_helper.scoped_session_dependency),
+):
+    await crud.delete_ad(ad_id=ad_id, session=session)
     return {"ok": True}

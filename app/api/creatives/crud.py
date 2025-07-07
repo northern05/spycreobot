@@ -69,11 +69,17 @@ async def check_creative(
     return result.scalars().first()
 
 
-async def delete_credits(
+async def delete_ad(
         session: AsyncSession,
-        credits_in: Creative,
+        ad_id: int,
 ) -> None:
-    await session.delete(credits_in)
+    stmt = (
+        select(Creative)
+        .filter(Creative.id == ad_id)
+    )
+    result: Result = await session.execute(stmt)
+    pin = result.scalars().first()
+    await session.delete(pin)
     await session.commit()
 
 
