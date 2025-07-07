@@ -161,7 +161,7 @@ class FacebookAdsLibraryDriver:
                 "page_id",
                 "ad_creative_media_type"
             ]),
-            "limit": limit,
+            "limit": limit * 10,
             "start_date": self._calculate_date_filter(period),
         }
         if page_id:
@@ -514,7 +514,7 @@ class FacebookAdsLibraryDriver:
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BOzZAtDAXmJnYwA2ZBZAauzDdsKyk2dLp7MsBN8CTOi7NB20ZApXycdJs38sEEwsXdEymk9M7ZByFadB7vfZCA3UDtwXIu3aCW4fUwRIV8IMB9iH3RVu6cv6dlJOv0qEozpLZCLrRcqxqLJJyOQc4ZBNuzZBUuf47DqjeZB8nh9NDcfCYYY9FrxhVtKm7X1JXVg5bEomqys84Kur5hMzxZCL7JCU0bQDXBQ7iwqPzUM2qjdFIAZDZD",
+            access_token="EAAKCNpvlGQ8BPMiJmbZCDd6rHU684n4leqCSU2BxvXLExWmpb4V43HdVWUAB8KJO1A4F5sPco1GfHhcANPqiHAHfu5AdmclT6zZBM2UUZBw9G2F2dQZAcGEwWBWDABWwTDjxN8ZCPOCaktHtSkZCTcJhu67YEQbSTvOC4PhzU8OyPANiWlvQGsGBnTuFyxLVOhZAwSIZCHyHtIqyBZBciF5WZAZBv9j93xFSTrDwMo98ZC2rN8Y5vEAKoVlXqQZDZD",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"
@@ -532,7 +532,7 @@ if __name__ == '__main__':
                 niche="gambling",  # Now specifically gambling
                 placements=["facebook", "instagram", "audience_network", "threads", "messenger"],
                 ad_type="video",
-                country="GB",
+                country="TR",
                 period="month",
                 # keyword="casino",  # Broad keyword for gambling
             )

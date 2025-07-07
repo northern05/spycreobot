@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 from urllib.parse import urlparse
 
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, and_
 from fastapi_sa_orm_filter.main import FilterCore
 from fastapi_sa_orm_filter.operators import Operators as ops
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,16 +57,14 @@ async def get_all(
 async def check_creative(
         session: AsyncSession,
         facebook_id: str,
-        description: str,
         media_unique_identifier: str
 ):
-    conditions = [
-        Creative.facebook_id == facebook_id,
-        Creative.media_unique_identifier == media_unique_identifier,
-        Creative.description == description
-    ]
-
-    stmt = select(Creative).filter(or_(*conditions))
+    stmt = select(Creative).filter(
+        or_(
+            Creative.facebook_id == facebook_id,
+            Creative.media_unique_identifier == media_unique_identifier
+        )
+    )
     result: Result = await session.execute(stmt)
     return result.scalars().first()
 

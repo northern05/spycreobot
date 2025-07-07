@@ -82,13 +82,13 @@ async def update_all_creatives():
                     req_model_with_cursor["search_cursor"] = search_cursor
 
                     ads, new_cursor = await fb_driver.get_ads_page(**req_model_with_cursor)
+                    print(f"{req_model.get('country')}, {len(ads)}")
 
                     for ad in ads:
                         existing_creative = await crud.check_creative(
                             session=current_session,
                             facebook_id=str(ad.get("id")),
-                            media_unique_identifier=ad.get("media_url")[-8:],
-                            description=ad.get("body")
+                            media_unique_identifier=ad.get("media_url")[-8:]
                         )
                         if not existing_creative:
                             await crud.create(
