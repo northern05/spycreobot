@@ -148,7 +148,7 @@ class FacebookAdsLibraryDriver:
         params = {
             "access_token": self.access_token,
             "search_terms": search_term,
-            "ad_reached_countries": country if country else ",".join(COUNTRY_TO_KEYWORDS.keys()),
+            "ad_reached_countries": country if country else "ES,CH,GB,AT,PT",
             "ad_active_status": "ACTIVE",
             "media_type": ad_type.upper() if ad_type else "ALL",
             "fields": ",".join([
@@ -335,7 +335,7 @@ class FacebookAdsLibraryDriver:
         period = "half_year" if period == "halfyear" else period
         generated_terms = []
 
-        for combo in COUNTRY_TO_KEYWORDS.get(country):
+        for combo in COUNTRY_TO_KEYWORDS.get(country) if country else base_phrases:
             term_string =  ' '.join(combo) #' '.join(combo)
             if keyword:
                 term_string += f" {keyword}"

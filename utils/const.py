@@ -76,7 +76,7 @@ language_map = {
 
 # All countries
 all_countries = {"GB", "AL", "AD", "AT", "BE", "BA", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GI", "GR",
-                 "HU", "IS", "IE", "IT", "LV", "LI", "LT", "LU", "MT", "MD", "MC", "ME", "NL", "MK", "NO", "PL", "PT",
+                 "IS", "IE", "IT", "LV", "LI", "LT", "LU", "MT", "MD", "MC", "ME", "NL", "MK", "NO", "PL", "PT",
                  "RO", "SM", "RS", "SK", "SI", "ES", "SE", "CH", "UA", "VA", "IM", "FO", "AX", "JE", "TR", "CA", "MX",
                  "AR", "BO", "BR", "CL", "CO", "CR", "DO", "EC", "GT", "HN", "JM", "NI", "PA", "PE", "PY", "SV",
                  "UY", "VE", "BZ", "HT", "TT", "BS", "LC", "VC", "DM", "GD", "AG", "KN", "BB", "GY", "AE", "AF", "AM",
