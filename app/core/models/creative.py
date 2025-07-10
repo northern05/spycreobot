@@ -21,6 +21,7 @@ class Creative(Base):
     button: Mapped[str] = mapped_column(String)
     score: Mapped[int] = mapped_column(Integer)
     media_unique_identifier: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    state: Mapped[str] = mapped_column(String, server_default="active")
 
     def __repr__(self):
         return f"<Niche: {self.niche}, facebook_url {self.facebook_url}>"

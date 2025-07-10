@@ -80,6 +80,8 @@ class FacebookAdsLibraryDriver:
     def _calculate_date_filter(self, period: str) -> str:
         today = datetime.utcnow().date()
         delta = {
+            "hour": timedelta(hours=1),
+            "day": timedelta(days=1),
             "week": timedelta(days=7),
             "month": timedelta(days=30),
             "quarter": timedelta(days=90),
@@ -514,7 +516,7 @@ class FacebookAdsLibraryDriver:
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BPMiJmbZCDd6rHU684n4leqCSU2BxvXLExWmpb4V43HdVWUAB8KJO1A4F5sPco1GfHhcANPqiHAHfu5AdmclT6zZBM2UUZBw9G2F2dQZAcGEwWBWDABWwTDjxN8ZCPOCaktHtSkZCTcJhu67YEQbSTvOC4PhzU8OyPANiWlvQGsGBnTuFyxLVOhZAwSIZCHyHtIqyBZBciF5WZAZBv9j93xFSTrDwMo98ZC2rN8Y5vEAKoVlXqQZDZD",
+            access_token="EAAKCNpvlGQ8BPFlNfzCCirl3hZB7Qqd8pjRorsfnLnBURSK690MZBxHWWz4sVZBbA0gdP3M581qiPks9VFOs6J9ZC4OpkhcaAPqaZAU6UwpjnsJXDM1JkwSzf5p1T4fvmTfdQEkZBxz0qNelismdIn4kckQOgNrEXEYMXEvPcu9vWzetbSk2LDpGvBitn1EsvOWS8dIkHWxOnHwVWPbfmZCJBtkkPBfUdZAinZAJZC8bIuZAUuZAfrOtgepreQZDZD",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"
@@ -526,13 +528,13 @@ if __name__ == '__main__':
 
             # --- First Page (e.g., 4 ads per page) ---
             print("\n--- Page 1 (Gambling) ---")
-            page_size = 20  # Request 4 ads per page
+            page_size = 50  # Request 4 ads per page
             ads_page1, search_cursor_page1 = await driver.get_ads_page(
                 page_size=page_size,
                 niche="gambling",  # Now specifically gambling
                 placements=["facebook", "instagram", "audience_network", "threads", "messenger"],
                 ad_type="video",
-                country="TR",
+                country="GB",
                 period="month",
                 # keyword="casino",  # Broad keyword for gambling
             )

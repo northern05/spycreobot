@@ -4,30 +4,10 @@ base_phrases = [
     ["free", "spin", "play"],
     ["play", "slots", "online"],
     ["casino", "win", "game"],
-    ["slot", "register", "lucky"],
     ["download", "register", "bonus"],
-    ["deposit", "bonus", "verification"],
     ["bonus", "play", "spins"],
-
-    # 📱 Мобільні додатки, Android traffic
     ["mobile","casino","app"],
-    ["app","mobile", "slots"],
-
-    # 💸 Виплати, кешбек, фінансові теми
-    ["withdraw","deposit","claim"],
-    ["offer","deposit","cash"],
-
-    # 💡 Промо-терміни, бонуси
     ["bonus","win","now"],
-    ["promo","spin","free"],
-    ["exclusive","offer","limited"],
-    ["big","prize","today"],
-    ["unlimited",'chance',"today"],
-
-    # 🎲 Класичні азартні ігри (менш рекламні, більше контентні)
-    ["blackjack","poker","game"],
-    ["roulette","baccarat","card"],
-    ["slots","machines","online"],
 ]
 
 # Translations with 2 local phrases per language + base phrases
@@ -120,7 +100,7 @@ for country in all_countries:
 
 COMMERCIAL_KEYWORDS = {
     "download", "install", "play", "use app", "play game", "learn more", "download app", "install app", "install now",
-    "join now", "apply now", "free download"
+    "join now", "apply now", "free download", "sign up"
 }
 
 button_like_selectors = [

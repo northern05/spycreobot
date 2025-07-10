@@ -66,12 +66,11 @@ async def get_all_creatives(
     status_code=status.HTTP_200_OK,
     response_model=dict,
 )
-async def delete_pin(
+async def delete_ad(
         result: dict = Depends(dependencies.delete_ad)
 ):
     """
-    Endpoint to delete users pins
-    :param session: session to connect to database
+    Endpoint to delete ads
     :return: dict with result
     """
     return result

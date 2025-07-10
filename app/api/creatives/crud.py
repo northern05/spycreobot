@@ -78,8 +78,8 @@ async def delete_ad(
         .filter(Creative.id == ad_id)
     )
     result: Result = await session.execute(stmt)
-    pin = result.scalars().first()
-    await session.delete(pin)
+    creative = result.scalars().first()
+    creative.state = "deleted"
     await session.commit()
 
 
