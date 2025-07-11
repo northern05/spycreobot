@@ -259,7 +259,7 @@ class FacebookAdsLibraryDriver:
                 "app_url": app_url,
                 "button": cta_text,
                 "score": self.rate_ad(link=app_url, text=cta_text),
-                "geo": geo
+                "geo": geo if geo else "ALL"
             }
         except Exception as e:
             logging.exception(f"Unexpected error in _format_ad for ad ID {ad.get('id')}: {e}")
