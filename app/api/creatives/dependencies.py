@@ -99,9 +99,14 @@ async def update_all_creatives():
                                 )
                             )
                         else:
-                            if geo_value and geo_value not in existing_creative.geo:
-                                existing_creative.geo.append(str(geo_value))
-                                await current_session.commit()
+                            if geo_value:
+                                geo_value = str(geo_value).strip()
+                                current_geo = existing_creative.geo or []
+
+                                if geo_value not in current_geo:
+                                    updated_geo = current_geo + [geo_value]
+                                    existing_creative.geo = updated_geo
+                                    await current_session.commit()
 
                     if not new_cursor:
                         logging.info(f"No more ads for combination {req_model}.")
