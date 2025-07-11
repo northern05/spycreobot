@@ -16,7 +16,7 @@ class CreativeBase(BaseModel):
     button: str | None = None
     app_url: str | None = None
     type: str
-    geo: str
+    geo: list
 
 
 class CreativeResponse(CreativeBase):

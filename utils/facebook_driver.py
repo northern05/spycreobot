@@ -262,7 +262,7 @@ class FacebookAdsLibraryDriver:
     async def close(self):
         await self.client.aclose()
 
-    async def get_ads_page(self, page_size: int = 25, exhaustive: bool = False, **search_params: Any) -> Tuple[
+    async def get_ads_page(self, page_size: int = 10, exhaustive: bool = False, **search_params: Any) -> Tuple[
         List[Dict[str, Any]], Optional[Dict[str, Any]]]:
         all_collected_ads: List[Dict[str, Any]] = []
 

@@ -1,5 +1,6 @@
 import bisect
 import requests
+from urllib.parse import unquote, parse_qs
 
 import itertools
 
@@ -33,3 +34,14 @@ def cash_ads():
         return {"ok": True}
     else:
         return {"ok": False}
+
+
+def extract_geo_from_filter(filter_query: str) -> str | None:
+    if not filter_query:
+        return None
+    decoded = unquote(filter_query)
+    pairs = decoded.split('&')
+    for pair in pairs:
+        if pair.startswith("geo__ilike="):
+            return pair.split("=", 1)[1]
+    return None

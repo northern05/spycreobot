@@ -606,7 +606,7 @@ async def send_creos(
                 ]
 
                 if json.get("country"):
-                    filter_parts.append(f"geo__ilike={json.get('country')}")
+                    filter_parts.append(f"geo__array_ilike={json.get('country')}")
 
                 objects_filter_str = "&".join(filter_parts)
                 params = {
@@ -615,7 +615,7 @@ async def send_creos(
                     "page_number": json.get("page_number") if json.get("page_number") else 1,
                     "page_size": 10
                 }
-                if json.get("country"): params.update({"geo__ilike": json.get("country")})
+                if json.get("country"): params.update({"geo__array_ilike": json.get("country")})
                 request = httpx.Request(
                     "GET",
                     url=f"{API_URL}/creatives",

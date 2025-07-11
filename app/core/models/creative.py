@@ -11,7 +11,7 @@ class Creative(Base):
     title: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(String, nullable=False)
     platforms: Mapped[list[str]] = mapped_column(ARRAY(String))
-    geo: Mapped[str] = mapped_column(String, nullable=False)
+    geo: Mapped[list] = mapped_column(ARRAY(String))
     facebook_url: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     type: Mapped[str] = mapped_column(String, nullable=False)

@@ -1,8 +1,5 @@
-import re
 from datetime import datetime
-from urllib.parse import urlparse
-
-from sqlalchemy import select, func, or_, and_
+from sqlalchemy import select, func, or_, and_, literal
 from fastapi_sa_orm_filter.main import FilterCore
 from fastapi_sa_orm_filter.operators import Operators as ops
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,7 +11,7 @@ from utils.paginated_response import PaginatedParams, paginate
 
 creative_query_filters = {
     'created_at': [ops.gte, ops.lte, ops.eq],
-    'geo': [ops.ilike, ops.eq],
+    'geo': ['array_ilike', 'array_eq'],
     'niche': [ops.like, ops.ilike],
     'page_id': [ops.eq]
 }
@@ -84,8 +81,11 @@ async def delete_ad(
 
 
 class CreativeFilter(FilterCore):
-
-    def get_select_query_part(self):
-        return (
-            select(Creative).order_by(Creative.score.desc())
-        )
+    def _get_orm_for_field(self, column, operator, value):
+        if operator == 'array_eq':
+            return literal(value) == func.any(column)
+        elif operator == 'array_ilike':
+            return func.lower(value).ilike(func.any(func.lower(column)))
+        else:
+            # делегуємо стандартну поведінку
+            return super()._get_orm_for_field(column, operator, value)
