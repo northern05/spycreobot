@@ -101,7 +101,7 @@ async def update_all_creatives():
                                     description=ad.get("body"),
                                     platforms=ad.get("platforms"),
                                     geo=req_model.get("country"),
-                                    facebook_url=ad.get("url"),
+                                    facebook_url=ad.get("facebook_url"),
                                     created_at=ad.get("created_at"),
                                     type=req_model.get("ad_type"),
                                     page_id=ad.get("page_id"),

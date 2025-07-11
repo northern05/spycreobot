@@ -357,8 +357,12 @@ async def handle_skip_keyword(callback: types.CallbackQuery, state: FSMContext):
 
 
 async def proceed_creative_search(message: types.Message, state: FSMContext):
+    timer_task = None
     telegram_id = message.from_user.id if str(message.from_user.id) != SELF_ID else message.chat.id
     data = await state.get_data()
+
+    if data.get("keyword"): timer_message_id, timer_task = await send_and_update_timer(bot, message.chat.id,
+                                                                                       initial_duration=100, interval=1)
 
     json = {
         "telegram_id": str(telegram_id),
@@ -373,7 +377,8 @@ async def proceed_creative_search(message: types.Message, state: FSMContext):
     await send_creos(
         json=json,
         message=message,
-        state=state
+        state=state,
+        timer_task=timer_task
     )
 
 
@@ -469,6 +474,7 @@ async def get_fav_creatives(callback: types.CallbackQuery, state: FSMContext):
 
 @tg_router.callback_query(F.data.startswith("pin_run:"))
 async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
+    timer_task = None
     pin_id_from_callback = callback.data.split(":")[1]
     user_data = await state.get_data()
     user_pins = user_data.get("user_pins", {})
@@ -486,6 +492,8 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
     ad_type = selected_pin.get("ad_type", "all")  # Default 'all'
     period = selected_pin.get("period", "year")  # Default 'week'
     keyword = selected_pin.get("keyword")
+    if keyword: timer_message_id, timer_task = await send_and_update_timer(bot, callback.message.chat.id, initial_duration=100,
+                                                               interval=1)
     data = {
         "telegram_id": str(callback.from_user.id),
         "niche": niche,
@@ -499,7 +507,8 @@ async def run_saved_pin(callback: types.CallbackQuery, state: FSMContext):
     await send_creos(
         json=data,
         message=callback.message,
-        state=state
+        state=state,
+        timer_task=timer_task
     )
 
 
@@ -577,7 +586,8 @@ async def send_creos(
         json: dict,
         message: types.Message,
         state: FSMContext,
-        similar: bool = False
+        similar: bool = False,
+        timer_task=None
 ):
     user_tg_id = json.get("telegram_id")
     try:
@@ -635,6 +645,14 @@ async def send_creos(
         await message.answer("An unexpected error occurred!")
         await main_menu(event=message)  # Передаємо bot
         return
+    finally:
+        if timer_task:
+            timer_task.cancel()
+            try:
+                await timer_task
+            except asyncio.CancelledError:
+                pass
+
     if response_data:
         if not response_data.get("ads"):
             await message.answer("No ads by your query", parse_mode='MarkdownV2')

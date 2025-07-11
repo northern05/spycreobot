@@ -140,7 +140,7 @@ class FacebookAdsLibraryDriver:
             ad_type: str,
             period: str = "month",
             limit: int = 100,
-            country: str = None,
+            geo: str = None,
             page_id: str = None,
             after: Optional[str] = None
     ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
@@ -180,7 +180,7 @@ class FacebookAdsLibraryDriver:
 
             formatted_ads = []
             for ad in raw_ads:
-                formatted = await self._format_ad(ad=ad, placements=placements)
+                formatted = await self._format_ad(ad=ad, placements=placements, geo=geo)
                 if formatted:
                     formatted_ads.append(formatted)
             return formatted_ads, next_cursor
@@ -191,7 +191,8 @@ class FacebookAdsLibraryDriver:
     async def _format_ad(
             self,
             ad: dict,
-            placements: Optional[List[str]] = None
+            placements: Optional[List[str]] = None,
+            geo: str = None
     ) -> Optional[Dict[str, Any]]:
         title = ad.get("ad_creative_link_titles", [""])[0] if ad.get("ad_creative_link_titles") else ""
         description = ad.get("ad_creative_link_descriptions", [""])[0] if ad.get(
@@ -248,7 +249,7 @@ class FacebookAdsLibraryDriver:
                 "description": description,
                 "body": self.remove_emojis_regex(body),
                 "platforms": ad_platforms,
-                "url": ad.get("ad_snapshot_url"),
+                "facebook_url": ad.get("ad_snapshot_url"),
                 "days_running": days_running,
                 "created_at": datetime.strptime(ad.get("ad_delivery_start_time"), "%Y-%m-%d"),
                 "raw_ad_data": ad,
@@ -257,7 +258,8 @@ class FacebookAdsLibraryDriver:
                 "media_url": media_url,
                 "app_url": app_url,
                 "button": cta_text,
-                "score": self.rate_ad(link=app_url, text=cta_text)
+                "score": self.rate_ad(link=app_url, text=cta_text),
+                "geo": geo
             }
         except Exception as e:
             logging.exception(f"Unexpected error in _format_ad for ad ID {ad.get('id')}: {e}")
@@ -349,7 +351,7 @@ class FacebookAdsLibraryDriver:
             ads_for_term, next_cursor_for_term = await self._search_single_term_ads(
                 search_term=search_term,
                 placements=placements,
-                country=country,
+                geo=country,
                 ad_type=ad_type,
                 period=period,
                 limit=api_call_limit,
