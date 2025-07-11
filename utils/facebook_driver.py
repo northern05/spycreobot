@@ -148,7 +148,7 @@ class FacebookAdsLibraryDriver:
         params = {
             "access_token": self.access_token,
             "search_terms": search_term,
-            "ad_reached_countries": country if country else "ES,CH,GB,AT,PT",
+            "ad_reached_countries": geo if geo else "ES,CH,GB,AT,PT",
             "ad_active_status": "ACTIVE",
             "media_type": ad_type.upper() if ad_type else "ALL",
             "fields": ",".join([
@@ -518,7 +518,7 @@ class FacebookAdsLibraryDriver:
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BPFlNfzCCirl3hZB7Qqd8pjRorsfnLnBURSK690MZBxHWWz4sVZBbA0gdP3M581qiPks9VFOs6J9ZC4OpkhcaAPqaZAU6UwpjnsJXDM1JkwSzf5p1T4fvmTfdQEkZBxz0qNelismdIn4kckQOgNrEXEYMXEvPcu9vWzetbSk2LDpGvBitn1EsvOWS8dIkHWxOnHwVWPbfmZCJBtkkPBfUdZAinZAJZC8bIuZAUuZAfrOtgepreQZDZD",
+            access_token="EAAKCNpvlGQ8BPFmOZB6ex1tUxwiywWcewjBy2w3WGnnr367Eq7wuaY7mHnGmz5pZB7cU6xbCBSty2uuVFZAj9rOtmHTYeSfaChCx8av1LIeMhmZCK0tnvxUGep5hCXbjCriV1689bMtMEojHGKQRe2GBynR8NZCwZCNQnekNwZB4gd9xDnZCz9nozXXcNAZCZCE4i4dEdUkIp9B05q8c1bt6iShFrNugd05Nj1fBzJXmmLAZBgG51vxXu1d",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"
@@ -538,7 +538,7 @@ if __name__ == '__main__':
                 ad_type="video",
                 country="GB",
                 period="month",
-                # keyword="casino",  # Broad keyword for gambling
+                keyword="chicken",  # Broad keyword for gambling
             )
 
             print(f"Collected {len(ads_page1)} ads for Page 1.")
