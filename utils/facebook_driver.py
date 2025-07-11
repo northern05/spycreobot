@@ -178,11 +178,15 @@ class FacebookAdsLibraryDriver:
             raw_ads = raw_response_data.get("data", [])
             next_cursor = raw_response_data.get("paging", {}).get("cursors", {}).get("after")
 
-            formatted_ads = []
-            for ad in raw_ads:
-                formatted = await self._format_ad(ad=ad, placements=placements, geo=geo)
-                if formatted:
-                    formatted_ads.append(formatted)
+            ads_tasks = [
+                self._format_ad(ad=ad, placements=placements, geo=geo)
+                for ad in raw_ads
+            ]
+            formatted_ads_raw = await asyncio.gather(*ads_tasks, return_exceptions=True)
+            formatted_ads = [
+                ad for ad in formatted_ads_raw
+                if isinstance(ad, dict) and ad is not None
+            ]
             return formatted_ads, next_cursor
         except Exception as e:
             logging.error(f"Error fetching ads for term '{search_term}': {e}")
@@ -199,71 +203,61 @@ class FacebookAdsLibraryDriver:
             "ad_creative_link_descriptions") else ""
         body = ad.get("ad_creative_bodies", [""])[0] if ad.get("ad_creative_bodies") else ""
 
-        EXCLUDED_TITLE = "This content was removed because it didn't follow our Advertising Standards."
-        ad_id = ad.get("id")
+        if not ad.get("id") or not ad.get("ad_snapshot_url"):
+            return None
 
-        if not ad.get("id"):
-            logging.warning("Ad ID is missing, skipping ad.")
+        if "This content was removed because it didn't follow our Advertising Standards." in title:
             return None
-        snapshot_url = ad.get("ad_snapshot_url")
-        if not snapshot_url:
-            logging.warning(f"Ad snapshot URL is missing for ad ID {ad_id}, skipping ad.")
+
+        ad_platforms = ad.get("publisher_platforms", []) or []
+        if placements and not any(p in ad_platforms for p in placements):
             return None
+
+        start_time = ad.get("ad_delivery_start_time")
+        stop_time = ad.get("ad_delivery_stop_time")
+        start_dt, end_dt = None, datetime.utcnow().date()
+
+        if start_time:
+            try:
+                start_dt = datetime.strptime(start_time, "%Y-%m-%d").date()
+                if stop_time:
+                    end_dt = datetime.strptime(stop_time, "%Y-%m-%d").date()
+            except ValueError:
+                pass
+
+        days_running = max((end_dt - start_dt).days, 0) if start_dt else 0
+
+        if len(body) >= CONTENT_CHAR_LIMIT:
+            return None
+
+        # Створення окремої сторінки для extract
+        page = await self.context.new_page()
         try:
-            if EXCLUDED_TITLE in title:
-                logging.info(f"Excluding ad ID {ad.get('id')} due to removed content title.")
-                return None
+            media_url, media_type, app_url, cta_text = await self.extract(fb_ad_url=ad["ad_snapshot_url"], page=page)
+        finally:
+            await page.close()
 
-            ad_platforms = ad.get("publisher_platforms", []) or []
-            if placements and not any(p in ad_platforms for p in placements):
-                return None
-
-            start_time = ad.get("ad_delivery_start_time")
-            stop_time = ad.get("ad_delivery_stop_time")
-
-            start_dt = None
-            end_dt = datetime.utcnow().date()
-
-            if start_time:
-                try:
-                    start_dt = datetime.strptime(start_time, "%Y-%m-%d").date()
-                    if stop_time:
-                        end_dt = datetime.strptime(stop_time, "%Y-%m-%d").date()
-                except ValueError:
-                    logging.warning(
-                        f"Invalid date format for ad ID {ad.get('id')}: start_time={start_time}, stop_time={stop_time}")
-                    start_dt = None
-
-            days_running = (end_dt - start_dt).days if start_dt and end_dt else 0
-            if days_running < 0: days_running = 0
-
-            if len(body) >= CONTENT_CHAR_LIMIT:
-                return None
-
-            media_url, media_type, app_url, cta_text = await self.extract(fb_ad_url=snapshot_url)
-            if not app_url or not cta_text: return None
-
-            return {
-                "id": ad_id,
-                "title": title,
-                "description": description,
-                "body": self.remove_emojis_regex(body),
-                "platforms": ad_platforms,
-                "facebook_url": ad.get("ad_snapshot_url"),
-                "days_running": days_running,
-                "created_at": datetime.strptime(ad.get("ad_delivery_start_time"), "%Y-%m-%d"),
-                "raw_ad_data": ad,
-                "type": ad.get("ad_creative_media_type") if ad.get("ad_creative_media_type") else media_type,
-                "page_id": ad.get("page_id"),
-                "media_url": media_url,
-                "app_url": app_url,
-                "button": cta_text,
-                "score": self.rate_ad(link=app_url, text=cta_text),
-                "geo": geo if geo else "ALL"
-            }
-        except Exception as e:
-            logging.exception(f"Unexpected error in _format_ad for ad ID {ad.get('id')}: {e}")
+        if not app_url or not cta_text:
             return None
+
+        return {
+            "id": ad["id"],
+            "title": title,
+            "description": description,
+            "body": self.remove_emojis_regex(body),
+            "platforms": ad_platforms,
+            "facebook_url": ad["ad_snapshot_url"],
+            "days_running": days_running,
+            "created_at": datetime.strptime(start_time, "%Y-%m-%d"),
+            "raw_ad_data": ad,
+            "type": ad.get("ad_creative_media_type") or media_type,
+            "page_id": ad.get("page_id"),
+            "media_url": media_url,
+            "app_url": app_url,
+            "button": cta_text,
+            "score": self.rate_ad(link=app_url, text=cta_text),
+            "geo": geo or "ALL"
+        }
 
     async def close(self):
         await self.client.aclose()
@@ -381,7 +375,7 @@ class FacebookAdsLibraryDriver:
 
         return emoji_pattern.sub(r'', text)
 
-    async def extract(self, fb_ad_url: str) -> tuple[Any, Any, str | None, Any | None]:
+    async def extract(self, fb_ad_url: str, page) -> tuple[Any, Any, str | None, Any | None]:
         media_urls = []
         cta_text = None
         decoded = None
@@ -425,8 +419,6 @@ class FacebookAdsLibraryDriver:
         if not is_snapshot_url_valid(fb_ad_url):
             print(f"[❌] Snapshot URL is not accessible: {fb_ad_url}")
             return None, None, None, None
-
-        page = await self.context.new_page()
 
         async def handle_response(response):
             url = response.url
@@ -518,7 +510,7 @@ class FacebookAdsLibraryDriver:
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BPFmOZB6ex1tUxwiywWcewjBy2w3WGnnr367Eq7wuaY7mHnGmz5pZB7cU6xbCBSty2uuVFZAj9rOtmHTYeSfaChCx8av1LIeMhmZCK0tnvxUGep5hCXbjCriV1689bMtMEojHGKQRe2GBynR8NZCwZCNQnekNwZB4gd9xDnZCz9nozXXcNAZCZCE4i4dEdUkIp9B05q8c1bt6iShFrNugd05Nj1fBzJXmmLAZBgG51vxXu1d",
+            access_token="EAAKCNpvlGQ8BPF0qZCNZAZCyHUTOwBgcEcGOoQyGVtQ8nmcEcCbKjRGZA57NcNOv4nbsIpK1g0q4cwhTK230K043dd4FgBv7XIIoYJ3iDVRcYYTpjHxn8hkKKHGQyWKLdLrKMSbbuVrhIjC4O58tTykDo2eo0F7RE8tIR5dZBqj3pstjcSrZCA8wziSB2ZBC2gBT2BtCTBF1mkHsJ9qi3BWVC1u78Bj9BEbVgPpIQ7Azm5vPSvOpJgl",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"
