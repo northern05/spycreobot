@@ -100,7 +100,7 @@ async def update_all_creatives():
                             )
                         else:
                             if geo_value and geo_value not in existing_creative.geo:
-                                existing_creative.geo.append(geo_value)
+                                existing_creative.geo.append(str(geo_value))
                                 await current_session.commit()
 
                     if not new_cursor:
