@@ -605,9 +605,14 @@ async def send_creos(
                     f"created_at__gte={calculate_date_filter(json.get('period'))}",
                 ]
 
-                # country — список країн, наприклад ['AU', 'CA']
-                if json.get("country"):
-                    countries = ",".join([c.lower() for c in json.get("country")])
+                raw_countries = json.get("country")
+                if isinstance(raw_countries, str):
+                    country_list = [c.strip() for c in raw_countries.split(",")]
+                else:
+                    country_list = raw_countries or []
+
+                if country_list:
+                    countries = ",".join([c.lower() for c in country_list])
                     filter_parts.append(f"geo__array_ilike={countries}")
 
                 objects_filter_str = "&".join(filter_parts)
