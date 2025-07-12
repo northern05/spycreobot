@@ -41,7 +41,7 @@ class CreativeCreate(BaseModel):
     title: str
     description: str
     platforms: list
-    geo: str
+    geo: list
     facebook_url: str
     created_at: datetime
     type: str
