@@ -605,17 +605,20 @@ async def send_creos(
                     f"created_at__gte={calculate_date_filter(json.get('period'))}",
                 ]
 
+                # country — список країн, наприклад ['AU', 'CA']
                 if json.get("country"):
-                    filter_parts.append(f"geo__array_ilike={json.get('country')}")
+                    countries = ",".join([c.lower() for c in json.get("country")])
+                    filter_parts.append(f"geo__array_ilike={countries}")
 
                 objects_filter_str = "&".join(filter_parts)
+
                 params = {
                     "telegram_id": user_tg_id,
                     "objects_filter": objects_filter_str,
                     "page_number": json.get("page_number") if json.get("page_number") else 1,
                     "page_size": 10
                 }
-                if json.get("country"): params.update({"geo__array_ilike": json.get("country")})
+
                 request = httpx.Request(
                     "GET",
                     url=f"{API_URL}/creatives",

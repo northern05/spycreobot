@@ -69,7 +69,7 @@ async def update_all_creatives():
 
                     ads, new_cursor = await fb_driver.get_ads_page(**req_model_with_cursor)
                     print(f"{req_model.get('country')}, {len(ads)}")
-                    geo_value = req_model.get("country")
+                    geo_value = req_model.get("country").lower()
 
                     for ad in ads:
                         existing_creative = await crud.check_creative(
@@ -86,7 +86,7 @@ async def update_all_creatives():
                                     title=ad.get("title"),
                                     description=ad.get("body"),
                                     platforms=ad.get("platforms"),
-                                    geo=req_model.get("country"),
+                                    geo=[geo_value],
                                     facebook_url=ad.get("facebook_url"),
                                     created_at=ad.get("created_at"),
                                     type=req_model.get("ad_type"),
@@ -125,7 +125,7 @@ async def update_all_creatives():
                 "placements": ["instagram", "facebook", "audience_network", "threads", "messenger"],
                 "country": geo,
                 "ad_type": ad_type,
-                "period": "hour",
+                "period": "day",
                 "page_size": 50
             }
             # all_tasks.append(
