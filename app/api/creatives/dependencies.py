@@ -23,6 +23,7 @@ async def get_creatives(
         creative_request: CreativeRequest,
         session: AsyncSession = Depends(db_helper.scoped_session_dependency),
 ) -> dict:
+    logging.info(f"DATA: {creative_request.dict()}")
     ads, search_cursor = await fb_driver.get_ads_page(
         **creative_request.dict(exclude={"telegram_id"})
     )
