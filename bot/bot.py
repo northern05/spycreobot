@@ -700,7 +700,7 @@ async def send_creos(
                         InlineKeyboardButton(text="Get similar", callback_data=f"get_similar:{page_id}")
                     ]]
                 )
-            caption = f"Geo: #{', '.join(geo).upper()}\n" \
+            caption = f"Geo: #{', #'.join(geo).upper() if isinstance(geo, list) else 'ALL'}\n" \
                       f"Title: {title}\n" \
                       f"Placements: {', '.join(platforms_mapping.get(p) for p in platforms)}\n" \
                       f"Days running: {days_running}\n" \
