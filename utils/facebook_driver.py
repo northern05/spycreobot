@@ -256,7 +256,7 @@ class FacebookAdsLibraryDriver:
             "app_url": app_url,
             "button": cta_text,
             "score": self.rate_ad(link=app_url, text=cta_text),
-            "geo": geo or "ALL"
+            "geo": [geo] or ["ALL"]
         }
 
     async def close(self):
