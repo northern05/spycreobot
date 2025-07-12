@@ -148,7 +148,7 @@ class FacebookAdsLibraryDriver:
         params = {
             "access_token": self.access_token,
             "search_terms": search_term,
-            "ad_reached_countries": geo if geo else "ES,CH,GB,AT,PT",
+            "ad_reached_countries": geo if geo else ",".join(COUNTRY_TO_KEYWORDS.keys()),
             "ad_active_status": "ACTIVE",
             "media_type": ad_type.upper() if ad_type else "ALL",
             "fields": ",".join([
@@ -332,7 +332,7 @@ class FacebookAdsLibraryDriver:
         generated_terms = []
 
         for combo in COUNTRY_TO_KEYWORDS.get(country) if country else base_phrases:
-            term_string =  ' '.join(combo) #' '.join(combo)
+            term_string =  ' '.join(combo)
             if keyword:
                 term_string += f" {keyword}"
             generated_terms.append(term_string)
@@ -510,7 +510,7 @@ class FacebookAdsLibraryDriver:
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BPF0qZCNZAZCyHUTOwBgcEcGOoQyGVtQ8nmcEcCbKjRGZA57NcNOv4nbsIpK1g0q4cwhTK230K043dd4FgBv7XIIoYJ3iDVRcYYTpjHxn8hkKKHGQyWKLdLrKMSbbuVrhIjC4O58tTykDo2eo0F7RE8tIR5dZBqj3pstjcSrZCA8wziSB2ZBC2gBT2BtCTBF1mkHsJ9qi3BWVC1u78Bj9BEbVgPpIQ7Azm5vPSvOpJgl",
+            access_token="EAAKCNpvlGQ8BPFCH0xpffZA91LDMf7FMHgEvfG60MgososiXGPwVtF7LVsWzvNaSKPGwq2qZCRnhGTZB80mGoylm6IuHK19NBIAs4vNGGUDQXDdZAMBPqkDqZCvRLrHa9ceADzzwNZBqAbcDKGsOgK2YjJ8Mi3vB5265syx4YFHPDCqbJZBsu5W1qeT6VAmsRtobMSBHzhPsOZBYIIjBivXvzE3MpiCpcLVlzGEG9AWmZBtuZAAeuBpKEJ",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"
@@ -522,7 +522,7 @@ if __name__ == '__main__':
 
             # --- First Page (e.g., 4 ads per page) ---
             print("\n--- Page 1 (Gambling) ---")
-            page_size = 50  # Request 4 ads per page
+            page_size = 10  # Request 4 ads per page
             ads_page1, search_cursor_page1 = await driver.get_ads_page(
                 page_size=page_size,
                 niche="gambling",  # Now specifically gambling
