@@ -271,14 +271,14 @@ class FacebookAdsLibraryDriver:
             current_keyword_combination_index = search_cursor.get('current_keyword_combination_index', 0)
             current_cursor = search_cursor.get('current_cursor', None)
             seen_ad_ids = set(search_cursor.get('seen_ad_ids', []))
+            seen_content_hashes = set(search_cursor.get('seen_content_hashes', []))
             seen_ad_media = set(search_cursor.get('seen_ad_media', []))
-            seen_urls = set(search_cursor.get('seen_urls', []))
         else:
             current_keyword_combination_index = 0
             current_cursor = None
             seen_ad_ids = set()
             seen_ad_media = set()
-            seen_urls = set()
+            seen_content_hashes = set()
 
         while len(all_collected_ads) < page_size or exhaustive:
             ads_chunk, next_cursor_for_term, next_combination_index = await self._orchestrate_search_terms(
@@ -292,6 +292,11 @@ class FacebookAdsLibraryDriver:
                 break
 
             for ad in ads_chunk:
+                if search_params.get("keyword"):
+                    content_string = ad.get("body")
+                    content_hash = hashlib.md5(content_string.encode('utf-8')).hexdigest()
+                    if content_hash in seen_content_hashes: continue
+                    seen_content_hashes.add(content_hash)
                 if ad["id"] not in seen_ad_ids and ad.get("media_url")[-8:] not in seen_ad_media:
                     all_collected_ads.append(ad)
                     seen_ad_ids.add(ad["id"])
@@ -311,7 +316,7 @@ class FacebookAdsLibraryDriver:
                 'current_cursor': current_cursor,
                 'seen_ad_ids': list(seen_ad_ids),
                 'seen_ad_media': list(seen_ad_media),
-                'seen_urls': list(seen_urls)
+                'seen_content_hashes': list(seen_content_hashes),
             }
 
         return all_collected_ads, next_search_cursor
@@ -456,7 +461,6 @@ class FacebookAdsLibraryDriver:
                 except Exception:
                     continue
 
-            # Тепер переходимо до лінків
             links = await page.query_selector_all('a[href]:not([role="button"])')
             visible_links = [link for link in links if await link.is_visible()]
             for link in visible_links:
