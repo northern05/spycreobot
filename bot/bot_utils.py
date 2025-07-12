@@ -189,7 +189,7 @@ async def _update_timer_task(bot: Bot, chat_id: int, message_id: int, duration: 
     logging.info(f"Timer task for {chat_id}:{message_id} completed its internal countdown.")
 
 
-def calculate_date_filter(period: str) -> str:
+def calculate_date_filter(period: str) -> datetime:
     delta = {
         "week": timedelta(days=7),
         "month": timedelta(days=30),
@@ -197,4 +197,6 @@ def calculate_date_filter(period: str) -> str:
         "halfyear": timedelta(days=180),
         "year": timedelta(days=365)
     }.get(period, timedelta(days=366))
-    return (datetime.utcnow().date() - delta).isoformat()
+
+    date_only = datetime.utcnow().date() - delta
+    return datetime.combine(date_only, datetime.min.time())
