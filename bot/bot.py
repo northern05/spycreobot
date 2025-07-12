@@ -602,7 +602,7 @@ async def send_creos(
             else:
                 filter_parts = [
                     f"niche__ilike={json.get('niche')}",
-                    f"created_at__gte={calculate_date_filter(json.get('period').isoformat())}",
+                    f"created_at__gte={calculate_date_filter(json.get('period'))}",
                 ]
 
                 raw_countries = json.get("country")
