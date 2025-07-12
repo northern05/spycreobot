@@ -59,7 +59,7 @@ async def get_all(
 
 async def update_all_creatives():
     async def _fetch_and_cache_pages_for_combination(
-            req_model: dict, pages_to_cache: int = 10
+            req_model: dict, pages_to_cache: int = 50
     ):
         search_cursor = None
         async with db_helper.session_factory() as current_session:
@@ -127,7 +127,7 @@ async def update_all_creatives():
                 "country": geo,
                 "ad_type": ad_type,
                 "period": "year",
-                "page_size": 100
+                "page_size": 50
             }
             # all_tasks.append(
             #     _fetch_and_cache_pages_for_combination(base_request_params, pages_to_cache=10)
