@@ -1,13 +1,15 @@
 from enum import Enum
 from datetime import datetime
 from typing import Optional, List, get_args, get_origin
+from dateutil.parser import parse as parse_datetime
 
-from sqlalchemy import select, func, or_, literal, any_
+from sqlalchemy import select, func, or_, literal, any_, DateTime
 from fastapi_sa_orm_filter.main import FilterCore
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.engine import Result
 from fastapi import HTTPException
 from pydantic import ValidationError, create_model
+
 
 from .schemas import CreativeCreate, CreativeResponse
 from app.core.models import Creative
@@ -116,13 +118,22 @@ class CreativeFilter(FilterCore):
         return super()._get_orm_for_field(column, operator, value)
 
     def _format_expression(self, column, operator, value: str) -> dict[str, any]:
+        # Handle array operators
         if operator in [Operators.array_eq.value, Operators.array_ilike.value]:
-            return {column.name: value.split(",")}
+            return {column.name: [v.strip() for v in value.split(",")]}
 
-        # fallback
-        if operator not in [Operators.between.value, Operators.in_.value]:
-            return {column.name: value.split(",")[0]}
-        return {column.name: value.split(",")}
+        # Handle between and in_ as list
+        if operator in [Operators.between.value, Operators.in_.value]:
+            return {column.name: [v.strip() for v in value.split(",")]}
+
+        # Fallback for single-value operators
+        single_value = value.split(",")[0].strip()
+        if isinstance(column.type, DateTime):
+            try:
+                single_value = parse_datetime(single_value)
+            except Exception:
+                raise ValueError(f"Invalid datetime format: {single_value}")
+        return {column.name: single_value}
 
     def _get_optional_pydantic_model(self, pydantic_serializer, is_list: bool = False):
         fields = {}
