@@ -271,13 +271,13 @@ class FacebookAdsLibraryDriver:
             current_keyword_combination_index = search_cursor.get('current_keyword_combination_index', 0)
             current_cursor = search_cursor.get('current_cursor', None)
             seen_ad_ids = set(search_cursor.get('seen_ad_ids', []))
-            seen_content_hashes = set(search_cursor.get('seen_content_hashes', []))
+            seen_ad_media = set(search_cursor.get('seen_ad_media', []))
             seen_urls = set(search_cursor.get('seen_urls', []))
         else:
             current_keyword_combination_index = 0
             current_cursor = None
             seen_ad_ids = set()
-            seen_content_hashes = set()
+            seen_ad_media = set()
             seen_urls = set()
 
         while len(all_collected_ads) < page_size or exhaustive:
@@ -295,6 +295,7 @@ class FacebookAdsLibraryDriver:
                 if ad["id"] not in seen_ad_ids:
                     all_collected_ads.append(ad)
                     seen_ad_ids.add(ad["id"])
+                    seen_ad_media.add(ad.get("facebook_url"))
                     if len(all_collected_ads) >= page_size and not exhaustive:
                         break
 
@@ -309,7 +310,7 @@ class FacebookAdsLibraryDriver:
                 'current_keyword_combination_index': current_keyword_combination_index,
                 'current_cursor': current_cursor,
                 'seen_ad_ids': list(seen_ad_ids),
-                'seen_content_hashes': list(seen_content_hashes),
+                'seen_ad_media': list(seen_ad_media),
                 'seen_urls': list(seen_urls)
             }
 
