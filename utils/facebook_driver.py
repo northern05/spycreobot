@@ -292,10 +292,10 @@ class FacebookAdsLibraryDriver:
                 break
 
             for ad in ads_chunk:
-                if ad["id"] not in seen_ad_ids:
+                if ad["id"] not in seen_ad_ids and ad.get("media_url")[-8:] not in seen_ad_media:
                     all_collected_ads.append(ad)
                     seen_ad_ids.add(ad["id"])
-                    seen_ad_media.add(ad.get("facebook_url"))
+                    seen_ad_media.add(ad.get("media_url")[-8:])
                     if len(all_collected_ads) >= page_size and not exhaustive:
                         break
 
