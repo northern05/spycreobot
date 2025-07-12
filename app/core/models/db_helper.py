@@ -16,6 +16,8 @@ class DatabaseHelper:
         self.engine = create_async_engine(
             url=url,
             echo=echo,
+            pool_recycle=1800,
+            future=True
         )
         self.session_factory = async_sessionmaker(
             bind=self.engine,

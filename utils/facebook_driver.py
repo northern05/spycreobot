@@ -13,6 +13,7 @@ from utils.const import *
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 MAX_PLAYWRIGHT_NAV_ATTEMPTS = 2
+SEMAPHORE_LIMIT = 10
 
 
 class FacebookAdsLibraryDriver:
@@ -144,6 +145,10 @@ class FacebookAdsLibraryDriver:
             page_id: str = None,
             after: Optional[str] = None
     ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+        semaphore = asyncio.Semaphore(SEMAPHORE_LIMIT)
+        async def format_with_semaphore(ad):
+            async with semaphore:
+                return await self._format_ad(ad=ad, placements=placements, geo=geo)
 
         params = {
             "access_token": self.access_token,
@@ -177,11 +182,7 @@ class FacebookAdsLibraryDriver:
             raw_response_data = await self._fetch_ads(params)
             raw_ads = raw_response_data.get("data", [])
             next_cursor = raw_response_data.get("paging", {}).get("cursors", {}).get("after")
-
-            ads_tasks = [
-                self._format_ad(ad=ad, placements=placements, geo=geo)
-                for ad in raw_ads
-            ]
+            ads_tasks = [format_with_semaphore(ad) for ad in raw_ads]
             formatted_ads_raw = await asyncio.gather(*ads_tasks, return_exceptions=True)
             formatted_ads = [
                 ad for ad in formatted_ads_raw
@@ -437,13 +438,9 @@ class FacebookAdsLibraryDriver:
         page.on("response", handle_response)
 
         try:
-            await page.goto(fb_ad_url, wait_until="domcontentloaded", timeout=60000)
+            await page.goto(fb_ad_url, wait_until="networkidle", timeout=90000)
             await page.wait_for_timeout(5000)
-        except Exception as e:
-            print(f"[❌] Exception during page.goto: {e}")
-            return None, None, None, None
 
-        try:
             await page.evaluate("window.scrollBy(0, 3000)")
             await page.wait_for_timeout(1000)
 

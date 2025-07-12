@@ -1,6 +1,5 @@
 import logging
-import hashlib
-import json
+import asyncio
 from typing import Annotated
 
 from fastapi import Depends, Path
@@ -18,6 +17,7 @@ from utils.paginated_response import PaginatedResponse, PaginatedParams
 
 CACHE_TTL_SECONDS = 3600
 
+SEMAPHORE_LIMIT = 10
 
 async def get_creatives(
         creative_request: CreativeRequest,
@@ -58,66 +58,70 @@ async def get_all(
 
 
 async def update_all_creatives():
-    async def _fetch_and_cache_pages_for_combination(
-            req_model: dict, pages_to_cache: int = 50
-    ):
-        search_cursor = None
-        async with db_helper.session_factory() as current_session:
-            for page_num in range(pages_to_cache):
-                try:
-                    req_model_with_cursor = req_model.copy()
-                    req_model_with_cursor["search_cursor"] = search_cursor
+    semaphore = asyncio.Semaphore(SEMAPHORE_LIMIT)
 
-                    ads, new_cursor = await fb_driver.get_ads_page(**req_model_with_cursor)
-                    print(f"{req_model.get('country')}, {len(ads)}")
-                    geo_value = req_model.get("country").lower()
+    async def _fetch_and_cache_pages_for_combination(req_model: dict, pages_to_cache: int = 50):
+        async with semaphore:
+            search_cursor = None
+            geo_value = req_model.get("country", "").lower()
 
-                    for ad in ads:
-                        existing_creative = await crud.check_creative(
-                            facebook_id=str(ad.get("id")),
-                            media_unique_identifier=ad.get("media_url")[-8:]
-                        )
-                        if not existing_creative:
-                            await crud.create(
-                                session=current_session,
-                                creative_data=CreativeCreate(
-                                    niche=req_model.get("niche"),
-                                    facebook_id=str(ad.get("id")),
-                                    title=ad.get("title"),
-                                    description=ad.get("body"),
-                                    platforms=ad.get("platforms"),
-                                    geo=[geo_value],
-                                    facebook_url=ad.get("facebook_url"),
-                                    created_at=ad.get("created_at"),
-                                    type=req_model.get("ad_type"),
-                                    page_id=ad.get("page_id"),
-                                    media_url=ad.get("media_url"),
-                                    app_url=ad.get("app_url"),
-                                    button=ad.get("button"),
-                                    score=ad.get("score"),
-                                    media_unique_identifier=ad.get("media_url")[-8:]
-                                )
+            async with db_helper.session_factory() as current_session:
+                for _ in range(pages_to_cache):
+                    try:
+                        req_model_with_cursor = {**req_model, "search_cursor": search_cursor}
+                        ads, new_cursor = await fb_driver.get_ads_page(**req_model_with_cursor)
+
+                        logging.info(f"[{geo_value}] Retrieved {len(ads)} ads.")
+
+                        for ad in ads:
+                            facebook_id = str(ad.get("id"))
+                            media_id = ad.get("media_url")[-8:]
+
+                            existing_creative = await crud.check_creative(
+                                facebook_id=facebook_id,
+                                media_unique_identifier=media_id
                             )
-                        else:
-                            if geo_value:
-                                geo_value = str(geo_value).strip()
+
+                            if not existing_creative:
+                                await crud.create(
+                                    session=current_session,
+                                    creative_data=CreativeCreate(
+                                        niche=req_model.get("niche"),
+                                        facebook_id=facebook_id,
+                                        title=ad.get("title"),
+                                        description=ad.get("body"),
+                                        platforms=ad.get("platforms"),
+                                        geo=[geo_value],
+                                        facebook_url=ad.get("facebook_url"),
+                                        created_at=ad.get("created_at"),
+                                        type=req_model.get("ad_type"),
+                                        page_id=ad.get("page_id"),
+                                        media_url=ad.get("media_url"),
+                                        app_url=ad.get("app_url"),
+                                        button=ad.get("button"),
+                                        score=ad.get("score"),
+                                        media_unique_identifier=media_id
+                                    )
+                                )
+                            else:
                                 current_geo = existing_creative.geo or []
-
                                 if geo_value not in current_geo:
-                                    updated_geo = current_geo + [geo_value]
-                                    existing_creative.geo = updated_geo
-                                    await current_session.commit()
+                                    existing_creative.geo = current_geo + [geo_value]
 
-                    if not new_cursor:
-                        logging.info(f"No more ads for combination {req_model}.")
+                        await current_session.commit()
+
+                        if not new_cursor:
+                            logging.info(f"[{geo_value}] No more ads to fetch.")
+                            break
+
+                        search_cursor = new_cursor
+
+                    except Exception as e:
+                        logging.exception(f"[{geo_value}] Error during caching: {e}")
                         break
 
-                    search_cursor = new_cursor
-                except Exception as e:
-                    logging.exception(f"Error during caching for {req_model}: {e}")
-                    break
+    tasks = []
 
-    all_tasks = []
     for geo in COUNTRY_TO_KEYWORDS.keys():
         for ad_type in ("video", "image"):
             base_request_params = {
@@ -128,14 +132,12 @@ async def update_all_creatives():
                 "period": "year",
                 "page_size": 20
             }
-            # all_tasks.append(
-            #     _fetch_and_cache_pages_for_combination(base_request_params, pages_to_cache=10)
-            # )
-            await _fetch_and_cache_pages_for_combination(req_model=base_request_params)
+            tasks.append(_fetch_and_cache_pages_for_combination(base_request_params))
 
-    logging.info(f"Launching {len(all_tasks)} background caching tasks.")
-    # results = await asyncio.gather(*all_tasks, return_exceptions=True)
-    # logging.info(f"Completed caching. Results: {results}")
+    logging.info(f"Launching {len(tasks)} caching tasks with concurrency limit = {SEMAPHORE_LIMIT}...")
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    logging.info("Finished all creative caching tasks.")
+
     return {"ok": True}
 
 
