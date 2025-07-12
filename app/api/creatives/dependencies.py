@@ -74,7 +74,6 @@ async def update_all_creatives():
 
                     for ad in ads:
                         existing_creative = await crud.check_creative(
-                            session=current_session,
                             facebook_id=str(ad.get("id")),
                             media_unique_identifier=ad.get("media_url")[-8:]
                         )

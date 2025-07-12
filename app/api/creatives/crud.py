@@ -12,7 +12,7 @@ from pydantic import ValidationError, create_model
 
 
 from .schemas import CreativeCreate, CreativeResponse
-from app.core.models import Creative
+from app.core.models import Creative, db_helper
 from utils.paginated_response import PaginatedParams, paginate
 
 
@@ -80,17 +80,17 @@ async def get_all(
 
 
 async def check_creative(
-        session: AsyncSession,
         facebook_id: str,
         media_unique_identifier: str
 ):
-    stmt = select(Creative).filter(
-        or_(
-            Creative.facebook_id == facebook_id,
-            Creative.media_unique_identifier == media_unique_identifier
+    async with db_helper.session_factory() as current_session:
+        stmt = select(Creative).filter(
+            or_(
+                Creative.facebook_id == facebook_id,
+                Creative.media_unique_identifier == media_unique_identifier
+            )
         )
-    )
-    result: Result = await session.execute(stmt)
+        result: Result = await current_session.execute(stmt)
     return result.scalars().first()
 
 
