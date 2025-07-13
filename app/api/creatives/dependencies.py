@@ -17,7 +17,7 @@ from utils.paginated_response import PaginatedResponse, PaginatedParams
 
 CACHE_TTL_SECONDS = 3600
 
-SEMAPHORE_LIMIT = 10
+SEMAPHORE_LIMIT = 5
 
 async def get_creatives(
         creative_request: CreativeRequest,
@@ -129,7 +129,7 @@ async def update_all_creatives():
                 "placements": ["instagram", "facebook", "audience_network", "threads", "messenger"],
                 "country": geo,
                 "ad_type": ad_type,
-                "period": "year",
+                "period": "day",
                 "page_size": 20
             }
             tasks.append(_fetch_and_cache_pages_for_combination(base_request_params))
