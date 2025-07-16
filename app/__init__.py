@@ -17,9 +17,9 @@ from utils.extra import cash_ads
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Started lifespan")
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(cash_ads, "cron", hour='*/12')
-    scheduler.start()
+    # scheduler = BackgroundScheduler()
+    # scheduler.add_job(cash_ads, "cron", hour='*/12')
+    # scheduler.start()
     async with db_helper.engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     await fb_driver.init_playwright()
