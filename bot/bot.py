@@ -1,3 +1,4 @@
+import html
 from types import SimpleNamespace
 from datetime import datetime
 from aiogram.client.default import DefaultBotProperties
@@ -710,26 +711,29 @@ async def send_creos(
                       f"Placements: {', '.join(platforms_mapping.get(p) for p in platforms)}\n" \
                       f"Days running: {days_running}\n" \
                       f"Button: {button}"
+            safe_caption = html.escape(caption)
             try:
                 if ad_type == "video":
                     await bot.send_video(
                         chat_id=message.chat.id,
                         video=media_url,
                         reply_markup=keyboard,
-                        caption=f"#VIDEO\n" + caption
+                        parse_mode="HTML",
+                        caption=f"#VIDEO\n" + safe_caption
                     )
                 elif ad_type == "image":
                     await bot.send_photo(
                         chat_id=message.chat.id,
                         photo=media_url,
                         reply_markup=keyboard,
-                        caption=f"#IMAGE\n" + caption
+                        parse_mode="HTML",
+                        caption=f"#IMAGE\n" + safe_caption
                     )
                 else:
                     await bot.send_message(
                         chat_id=message.chat.id,
-                        text=f"🔗 [Open media]({url})\n" + caption,
-                        parse_mode="Markdown",
+                        text=f"🔗 [Open media]({url})\n" + safe_caption,
+                        parse_mode="HTML",
                         reply_markup=keyboard
                     )
             except exceptions.TelegramBadRequest as e:
