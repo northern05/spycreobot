@@ -18,7 +18,7 @@ from utils.extra import cash_ads
 async def lifespan(app: FastAPI):
     print("Started lifespan")
     scheduler = BackgroundScheduler()
-    scheduler.add_job(cash_ads, "cron", hour='*/24')
+    scheduler.add_job(cash_ads, "cron", hour='*/23')
     scheduler.start()
     async with db_helper.engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
