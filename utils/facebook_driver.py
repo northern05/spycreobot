@@ -146,6 +146,7 @@ class FacebookAdsLibraryDriver:
             after: Optional[str] = None
     ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
         semaphore = asyncio.Semaphore(SEMAPHORE_LIMIT)
+
         async def format_with_semaphore(ad):
             async with semaphore:
                 return await self._format_ad(ad=ad, placements=placements, geo=geo)
@@ -338,8 +339,15 @@ class FacebookAdsLibraryDriver:
         period = "half_year" if period == "halfyear" else period
         generated_terms = []
 
-        for combo in COUNTRY_TO_KEYWORDS.get(country) if country else base_phrases:
-            term_string =  ' '.join(combo)
+        if keyword:
+            search_words = base_phrases_for_keyword
+        elif country:
+            search_words = COUNTRY_TO_KEYWORDS.get(country)
+        else:
+            search_words = base_phrases
+
+        for combo in search_words:
+            term_string = ' '.join(combo)
             if keyword:
                 term_string += f" {keyword}"
             generated_terms.append(term_string)

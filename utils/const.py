@@ -6,8 +6,20 @@ base_phrases = [
     ["casino", "win", "game"],
     ["download", "register", "bonus"],
     ["bonus", "play", "spins"],
-    ["mobile","casino","app"],
-    ["bonus","win","now"],
+    ["mobile", "casino", "app"],
+    ["bonus", "win", "now"],
+]
+
+base_phrases_for_keyword = [
+    ["free", "spin"],
+    ["play", "slots"],
+    ["online", "casino"],
+    ["win", "game"],
+    ["register", "bonus"],
+    ["play", "spins"],
+    ["mobile", "app"],
+    ["bonus", "win"],
+    ["bonus", "play"]
 ]
 
 # Translations with 2 local phrases per language + base phrases
@@ -61,7 +73,8 @@ language_map = {
     "DE": {"DE", "AT", "CH", "LU", "LI"},
     "IT": {"IT", "SM", "VA"},
     "FR": {"FR", "BE", "CH", "LU", "MC"},
-    "ES": {"ES", "MX", "AR", "CL", "CO", "PE", "EC", "UY", "VE", "PY", "BO", "DO", "CR", "GT", "HN", "NI", "PA", "SV", "CU"},
+    "ES": {"ES", "MX", "AR", "CL", "CO", "PE", "EC", "UY", "VE", "PY", "BO", "DO", "CR", "GT", "HN", "NI", "PA", "SV",
+           "CU"},
     "PL": {"PL"},
     "UA": {"UA"},
     "PT": {"PT", "BR"},
