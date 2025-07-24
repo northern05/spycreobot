@@ -11,15 +11,15 @@ base_phrases = [
 ]
 
 base_phrases_for_keyword = [
-    ["free", "spin"],
-    ["play", "slots"],
-    ["online", "casino"],
-    ["win", "game"],
-    ["register", "bonus"],
-    ["play", "spins"],
-    ["mobile", "app"],
-    ["bonus", "win"],
-    ["bonus", "play"]
+    ["free"], ["spin"],
+    ["play"], ["slots"],
+    ["online"], ["casino"],
+    ["win"], ["game"],
+    ["register"], ["bonus"],
+    ["play"], ["spins"],
+    ["mobile"], ["app"],
+    ["bonus"], ["win"],
+    ["bonus"], ["play"]
 ]
 
 # Translations with 2 local phrases per language + base phrases
