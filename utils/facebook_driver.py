@@ -29,7 +29,7 @@ class FacebookAdsLibraryDriver:
         self.client = httpx.AsyncClient(timeout=30)
         self.app_id = app_id
         self.app_secret = app_secret
-        self.semaphore = asyncio.Semaphore(5)
+        self.semaphore = asyncio.Semaphore(8)
 
         self.browser = None
         self.context = None
