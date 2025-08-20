@@ -169,7 +169,7 @@ class FacebookAdsLibraryDriver:
                 "page_id",
                 "ad_creative_media_type"
             ]),
-            "limit": limit * 2,
+            "limit": limit,
             "start_date": self._calculate_date_filter(period),
         }
         if page_id:
