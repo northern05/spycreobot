@@ -11,15 +11,14 @@ base_phrases = [
 ]
 
 base_phrases_for_keyword = [
-    ["casino"],
-    ["spin"],
-    ["slots"],
-    ["spins"],
-    ["bonus"],
     ["game"],
     ["play"],
-    ["online"],
+    ["slots"],
+    ["spins"],
     ["win"],
+    ["bonus"],
+    ["casino"],
+    ["online"],
     ["register"],
     ["mobile"],
     ["app"]
