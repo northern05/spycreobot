@@ -11,6 +11,7 @@ base_phrases = [
 ]
 
 base_phrases_for_keyword = [
+    ["app"],
     ["game"],
     ["play"],
     ["slots"],
@@ -21,7 +22,6 @@ base_phrases_for_keyword = [
     ["online"],
     ["register"],
     ["mobile"],
-    ["app"]
 ]
 
 # Translations with 2 local phrases per language + base phrases
