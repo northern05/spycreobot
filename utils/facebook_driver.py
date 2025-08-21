@@ -351,6 +351,7 @@ class FacebookAdsLibraryDriver:
             if keyword:
                 term_string += f" {keyword}"
             generated_terms.append(term_string)
+        if keyword: generated_terms.insert(0, keyword)
 
         current_combination_index = start_combination_index
         current_cursor = start_cursor
