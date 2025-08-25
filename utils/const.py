@@ -1,6 +1,6 @@
 CONTENT_CHAR_LIMIT = 300
 
-base_phrases = [
+BASE_PHRASES = [
     ["free", "spin", "play"],
     ["play", "slots", "online"],
     ["casino", "win", "game"],
@@ -10,7 +10,7 @@ base_phrases = [
     ["bonus", "win", "now"],
 ]
 
-base_phrases_for_keyword = [
+BASE_PHRASES_FOR_KEYWORD = [
     ["app"],
     ["game"],
     ["play"],
@@ -26,7 +26,7 @@ base_phrases_for_keyword = [
 
 # Translations with 2 local phrases per language + base phrases
 translations = {
-    "EN": base_phrases,
+    "EN": BASE_PHRASES,
     "CH": [["bonus sans dépôt"], ["100 tours gratuits"]],
     "FR": [["bonus sans dépôt"], ["100 tours gratuits"]],
     "ES": [["bono sin depósito"], ["100 giros gratis"]],
@@ -103,8 +103,8 @@ all_countries = {"GB", "AL", "AD", "AT", "BE", "BA", "BG", "HR", "CY", "CZ", "DK
 for lang, phrases in translations.items():
     if lang == "EN":
         continue
-    local_phrases = [p for p in phrases if p not in base_phrases]
-    reduced = local_phrases[:2] + base_phrases
+    local_phrases = [p for p in phrases if p not in BASE_PHRASES]
+    reduced = local_phrases[:2] + BASE_PHRASES
     translations[lang] = reduced
 
 # Build country to keywords mapping

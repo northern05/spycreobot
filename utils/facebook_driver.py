@@ -264,10 +264,22 @@ class FacebookAdsLibraryDriver:
     async def close(self):
         await self.client.aclose()
 
-    async def get_ads_page(self, page_size: int = 10, exhaustive: bool = False, **search_params: Any) -> Tuple[
-        List[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    async def get_ads_page(
+            self,
+            page_size: int = 10,
+            exhaustive: bool = False,
+            **search_params: Any
+    ) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
+        """
+        Page-level fetch that:
+          - builds interleaved search terms
+          - rotates across terms (no early lock)
+          - dedups by ad id, media tail and (optionally) body hash when keyword is set
+          - returns cursor to resume later
+        """
         all_collected_ads: List[Dict[str, Any]] = []
 
+        # --- read resume cursor if present ---
         search_cursor = search_params.pop('search_cursor', None)
         if search_cursor:
             current_keyword_combination_index = search_cursor.get('current_keyword_combination_index', 0)
@@ -282,35 +294,67 @@ class FacebookAdsLibraryDriver:
             seen_ad_media = set()
             seen_content_hashes = set()
 
+        # --- normalize params from **search_params ---
+        keyword = search_params.get("keyword")
+        country = search_params.get("country") or search_params.get("geo")
+        placements = search_params.get("placements")
+        ad_type = (search_params.get("ad_type") or "ALL").upper()
+        period = search_params.get("period") or "month"
+        page_id = search_params.get("page_id")
+        # limit of Graph API calls per pass
+        api_call_limit = int(search_params.get("api_call_limit", max(page_size, 10)))
+
+        # --- build interleaved search terms ---
+        generated_terms = self._orchestrate_search_terms(
+            keyword=keyword,
+            geo=country,
+        )
+
+        # --- main loop: rotate across terms, collect and dedup ---
         while len(all_collected_ads) < page_size or exhaustive:
-            ads_chunk, next_cursor_for_term, next_combination_index = await self._orchestrate_search_terms(
-                api_call_limit=page_size,
+            ads_chunk, next_cursor_for_term, next_combination_index = await self._collect_ads_across_terms(
+                generated_terms=generated_terms,
+                placements=placements,
+                country=country,
+                ad_type=ad_type,
+                period=period,
+                api_call_limit=api_call_limit,
                 start_combination_index=current_keyword_combination_index,
                 start_cursor=current_cursor,
-                **search_params
+                page_id=page_id,
             )
 
+            # no data and no more terms → stop
             if not ads_chunk and next_combination_index == -1:
                 break
 
+            # dedup + optional content-hash when keyword is set
             for ad in ads_chunk:
-                if search_params.get("keyword"):
-                    content_string = ad.get("body")
-                    content_hash = hashlib.md5(content_string.encode('utf-8')).hexdigest()
-                    if content_hash in seen_content_hashes: continue
-                    seen_content_hashes.add(content_hash)
-                if ad["id"] not in seen_ad_ids and ad.get("media_url")[-8:] not in seen_ad_media:
+                if keyword:
+                    content_string = ad.get("body") or ""
+                    if content_string:
+                        content_hash = hashlib.md5(content_string.encode('utf-8')).hexdigest()
+                        if content_hash in seen_content_hashes:
+                            continue
+                        seen_content_hashes.add(content_hash)
+
+                media_tail = (ad.get("media_url") or "")[-8:]
+                if ad.get("id") not in seen_ad_ids and media_tail not in seen_ad_media:
                     all_collected_ads.append(ad)
-                    seen_ad_ids.add(ad["id"])
-                    seen_ad_media.add(ad.get("media_url")[-8:])
+                    seen_ad_ids.add(ad.get("id"))
+                    seen_ad_media.add(media_tail)
                     if len(all_collected_ads) >= page_size and not exhaustive:
                         break
 
+            # update resume state
             current_cursor = next_cursor_for_term
             current_keyword_combination_index = next_combination_index
+
+            # nothing left to paginate nor rotate
             if not current_cursor and current_keyword_combination_index == -1:
                 break
 
+        # --- build next cursor if we can resume later ---
         next_search_cursor = None
         if not exhaustive and len(all_collected_ads) >= page_size:
             next_search_cursor = {
@@ -323,60 +367,157 @@ class FacebookAdsLibraryDriver:
 
         return all_collected_ads, next_search_cursor
 
-    async def _orchestrate_search_terms(
+    async def _collect_ads_across_terms(
             self,
-            niche: str,
+            generated_terms: list[str],
             placements: Optional[List[str]],
+            country: Optional[str],
             ad_type: Optional[str],
-            period: str,
+            period: Optional[str],
             api_call_limit: int,
-            start_combination_index: int,
-            start_cursor: Optional[str],
-            country: Optional[str] = None,
+            start_combination_index: Optional[int] = None,
+            start_cursor: Optional[str] = None,
             page_id: Optional[str] = None,
-            keyword: Optional[str] = None
     ) -> Tuple[List[Dict[str, Any]], Optional[str], int]:
-        period = "half_year" if period == "halfyear" else period
-        generated_terms = []
+        """
+        Round-robin across terms up to api_call_limit.
+        If a term returns a paging cursor, we return immediately so caller can resume the same term.
+        Returns (ads, next_cursor, next_index). next_index = -1 if all terms exhausted.
+        """
+        if not generated_terms or api_call_limit <= 0:
+            return [], None, -1
 
-        if keyword:
-            search_words = base_phrases_for_keyword
-        elif country:
-            search_words = COUNTRY_TO_KEYWORDS.get(country)
-        else:
-            search_words = base_phrases
+        idx = start_combination_index or 0
+        cursor = start_cursor
+        ads_collected: List[Dict[str, Any]] = []
+        tried_terms = 0
 
-        for combo in search_words:
-            term_string = ' '.join(combo)
-            if keyword:
-                term_string += f" {keyword}"
-            generated_terms.append(term_string)
-        if keyword: generated_terms.insert(0, keyword)
+        # clamp start index
+        idx = max(0, min(idx, len(generated_terms) - 1))
 
-        current_combination_index = start_combination_index
-        current_cursor = start_cursor
+        while (
+                idx < len(generated_terms)
+                and tried_terms < len(generated_terms)
+                and len(ads_collected) < api_call_limit
+        ):
+            term = generated_terms[idx]
+            remaining = api_call_limit - len(ads_collected)
 
-        while current_combination_index < len(generated_terms):
-            search_term = generated_terms[current_combination_index]
-            ads_for_term, next_cursor_for_term = await self._search_single_term_ads(
-                search_term=search_term,
+            ads, next_cur = await self._search_single_term_ads(
+                search_term=term,
                 placements=placements,
                 geo=country,
                 ad_type=ad_type,
-                period=period,
-                limit=api_call_limit,
-                after=current_cursor,
-                page_id=page_id
+                period=period or "month",
+                limit=remaining,
+                after=cursor,
+                page_id=page_id,
             )
-            logging.info(f"[🔍] Searched with term: '{search_term}' (Count: {len(ads_for_term)})")
 
-            if ads_for_term:
-                return ads_for_term, next_cursor_for_term, current_combination_index
-            else:
-                current_combination_index += 1
-                current_cursor = None
+            try:
+                logger = getattr(self, "logger", None)
+                if logger:
+                    logger.info(f"[🔎] term='{term}' got={len(ads)} cursor={'yes' if next_cur else 'no'}")
+                else:
+                    logging.info(f"[🔎] term='{term}' got={len(ads)} cursor={'yes' if next_cur else 'no'}")
+            except Exception:
+                pass
 
-        return [], None, -1
+            ads_collected.extend(ads)
+
+            if next_cur:
+                # still have pages on this term; let caller resume here
+                return ads_collected, next_cur, idx
+
+            # otherwise advance to next term
+            idx += 1
+            tried_terms += 1
+            cursor = None
+
+        # no more terms/cursors
+        return ads_collected, None, -1
+
+    @staticmethod
+    def _orchestrate_search_terms(
+            keyword: str | None,
+            geo: str | None,
+    ) -> list[str]:
+        """
+        Returns a de-duplicated, interleaved list of search terms.
+        Priority buckets:
+          A) raw keyword (if present)
+          B) BASE_PHRASES_FOR_KEYWORD anchored to keyword
+          C) localized (COUNTRY_TO_KEYWORDS[geo]) phrases
+          D) generic BASE_PHRASES
+        """
+
+        def join_phrase(parts: list[str]) -> str:
+            return " ".join(p for p in parts if p).strip()
+
+        buckets: list[list[str]] = []
+
+        # A) raw keyword (single quick probe)
+        if keyword:
+            kw = keyword.strip()
+            if kw:
+                buckets.append([kw])
+
+        # B) phrases anchored to keyword
+        kw_terms: list[str] = []
+        if keyword:
+            for ph in (BASE_PHRASES_FOR_KEYWORD or []):
+                t = f"{join_phrase(ph)} {keyword}".strip()
+                if t:
+                    kw_terms.append(t)
+        if kw_terms:
+            buckets.append(kw_terms)
+
+        # C) localized by geo
+        localized_terms: list[str] = []
+        if geo:
+            for ph in COUNTRY_TO_KEYWORDS.get(geo, []):
+                t = join_phrase(ph)
+                if t:
+                    localized_terms.append(t)
+        if localized_terms:
+            buckets.append(localized_terms)
+
+        # D) generic base phrases
+        generic_terms: list[str] = []
+        for ph in (BASE_PHRASES or []):
+            t = join_phrase(ph)
+            if t:
+                generic_terms.append(t)
+        if generic_terms:
+            buckets.append(generic_terms)
+
+        # Interleave B/C/D after A
+        result: list[str] = []
+        if buckets:
+            # A — попереду, якщо є
+            result.extend(buckets[0])
+
+            # round-robin по решті «стовпцях»
+            rr = [b for b in buckets[1:] if b]  # відкинемо порожні
+            i = 0
+            while True:
+                added = False
+                for b in rr:
+                    if i < len(b):
+                        result.append(b[i])
+                        added = True
+                if not added:
+                    break
+                i += 1
+
+        # De-dup, keep order
+        seen: set[str] = set()
+        deduped: list[str] = []
+        for t in result:
+            if t and t not in seen:
+                deduped.append(t)
+                seen.add(t)
+        return deduped
 
     def remove_emojis_regex(self, text):
         emoji_pattern = re.compile(
@@ -392,9 +533,9 @@ class FacebookAdsLibraryDriver:
         return emoji_pattern.sub(r'', text)
 
     async def extract(self, fb_ad_url: str, page) -> tuple[Any, Any, str | None, Any | None]:
-        media_urls = []
-        cta_text = None
-        decoded = None
+        media_urls: List[str] = []
+        cta_text: Optional[str] = None
+        decoded: Optional[str] = None
 
         def extract_final_url(fb_link: str) -> str:
             try:
@@ -404,9 +545,9 @@ class FacebookAdsLibraryDriver:
             except Exception:
                 return fb_link
 
-        def is_snapshot_url_valid(url: str) -> bool:
+        async def is_snapshot_url_valid(url: str) -> bool:
             try:
-                r = httpx.head(url, timeout=10, follow_redirects=True)
+                r = await self.client.head(url, timeout=10, follow_redirects=True)
                 return r.status_code == 200
             except Exception:
                 return False
@@ -432,12 +573,12 @@ class FacebookAdsLibraryDriver:
 
             return None
 
-        if not is_snapshot_url_valid(fb_ad_url):
-            print(f"[❌] Snapshot URL is not accessible: {fb_ad_url}")
+        if not await is_snapshot_url_valid(fb_ad_url):
+            logging.warning(f"[❌] Snapshot URL is not accessible: {fb_ad_url}")
             return None, None, None, None
 
         async def handle_response(response):
-            url = response.url
+            url = str(response.url)
             if "l.facebook.com/l.php" in url:
                 url = extract_final_url(url)
 
@@ -453,6 +594,7 @@ class FacebookAdsLibraryDriver:
             await page.evaluate("window.scrollBy(0, 3000)")
             await page.wait_for_timeout(1000)
 
+            # CTA buttons
             button_elements = await page.query_selector_all('div[role="button"]')
             for btn in button_elements:
                 try:
@@ -467,13 +609,13 @@ class FacebookAdsLibraryDriver:
                 except Exception:
                     continue
 
+            # visible links
             links = await page.query_selector_all('a[href]:not([role="button"])')
             visible_links = [link for link in links if await link.is_visible()]
             for link in visible_links:
                 href = await link.get_attribute("href")
                 if not href:
                     continue
-
                 parsed = urlparse(href)
                 qs = parse_qs(parsed.query)
                 decoded = unquote(qs.get("u", [""])[0])
@@ -481,11 +623,15 @@ class FacebookAdsLibraryDriver:
                     break
 
         except Exception as e:
-            print(f"[⚠️] Failed to eval links: {e}")
+            logging.warning(f"[⚠️] Failed to eval links: {e}")
 
-        await page.close()
+        # IMPORTANT: do NOT close the page here; _format_ad does it in finally{}
+        best = choose_best_media(media_urls)
+        if best:
+            best_media, media_type = best
+        else:
+            best_media, media_type = None, None
 
-        best_media, media_type = choose_best_media(media_urls)
         return best_media, media_type, decoded, cta_text
 
     @staticmethod
@@ -521,7 +667,7 @@ class FacebookAdsLibraryDriver:
 if __name__ == '__main__':
     async def run_main():
         driver = FacebookAdsLibraryDriver(
-            access_token="EAAKCNpvlGQ8BPFCH0xpffZA91LDMf7FMHgEvfG60MgososiXGPwVtF7LVsWzvNaSKPGwq2qZCRnhGTZB80mGoylm6IuHK19NBIAs4vNGGUDQXDdZAMBPqkDqZCvRLrHa9ceADzzwNZBqAbcDKGsOgK2YjJ8Mi3vB5265syx4YFHPDCqbJZBsu5W1qeT6VAmsRtobMSBHzhPsOZBYIIjBivXvzE3MpiCpcLVlzGEG9AWmZBtuZAAeuBpKEJ",
+            access_token="EAAKCNpvlGQ8BPbVsPZA1y6WZAI3RSRmIcCU4psOKR00reEfJ8xNCZAWh5jRLO1PpRbJCjjpYnWJ3V3eWGhRHRqPUOuktZAYSAsi8ZB3y9fDZAeYONolnJGj2dwGU8lPET06xsTceZAfaTmZBeNPl0DnVoUuHTmPmMx53Q10V5D5YSwkxZAEMZAInpLJQyFNP27ch31CpCmvgv3ti6dXcEXeKVfyrfL6Ff7qwPOn23Pdr4mobkhigFJsZCBE",
             # Use a valid, active token
             app_id="706121008748815",
             app_secret="aff7dc896abd538f8e8050102bbbc793"
@@ -538,10 +684,10 @@ if __name__ == '__main__':
                 page_size=page_size,
                 niche="gambling",  # Now specifically gambling
                 placements=["facebook", "instagram", "audience_network", "threads", "messenger"],
-                ad_type="video",
-                country="GB",
+                ad_type="ALL",
+                country="CA",
                 period="month",
-                keyword="chicken",  # Broad keyword for gambling
+                keyword="plinko",  # Broad keyword for gambling
             )
 
             print(f"Collected {len(ads_page1)} ads for Page 1.")
