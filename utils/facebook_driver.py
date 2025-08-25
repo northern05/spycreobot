@@ -13,7 +13,7 @@ from utils.const import *
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 MAX_PLAYWRIGHT_NAV_ATTEMPTS = 2
-SEMAPHORE_LIMIT = 10
+SEMAPHORE_LIMIT = 15
 
 
 class FacebookAdsLibraryDriver:
