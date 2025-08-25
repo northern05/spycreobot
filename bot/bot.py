@@ -592,7 +592,7 @@ async def send_creos(
 ):
     user_tg_id = json.get("telegram_id")
     try:
-        async with httpx.AsyncClient(timeout=1800) as client:
+        async with httpx.AsyncClient(timeout=2500) as client:
             if json.get("keyword") or json.get("similar"):
                 request = httpx.Request(
                     "GET",
