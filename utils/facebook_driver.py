@@ -331,7 +331,7 @@ class FacebookAdsLibraryDriver:
             # dedup + optional content-hash when keyword is set
             for ad in ads_chunk:
                 if keyword:
-                    content_string = ad.get("body") or ""
+                    content_string = ad.get("body") + ad.get("media_url") or ""
                     if content_string:
                         content_hash = hashlib.md5(content_string.encode('utf-8')).hexdigest()
                         if content_hash in seen_content_hashes:
