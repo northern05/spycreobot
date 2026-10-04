@@ -1,5 +1,7 @@
 __pycache__/
 .venv/
+.venv310/
+.python/
 .idea/
 *.pyc
 .alembic

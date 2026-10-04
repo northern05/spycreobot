@@ -42,7 +42,7 @@ class DatabaseHelper:
         session = self.get_scoped_session()
         try:
             yield session
-        except HTTPException as e:
+        except Exception as e:
             await session.rollback()
             await session.close()
             raise HTTPException(status_code=e.status_code, detail=e.detail)
