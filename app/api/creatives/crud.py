@@ -24,8 +24,6 @@ class Operators(str, Enum):
     like = "like"
     in_ = "in_"
     between = "between"
-
-    # ➕ кастомні оператори
     array_eq = "array_eq"
     array_ilike = "array_ilike"
 
@@ -160,7 +158,6 @@ class CreativeFilter(FilterCore):
             python_type = column.type.python_type
             name = column.name
 
-            # Якщо колонка — масив (наприклад geo: list[str])
             if hasattr(column.type, 'item_type'):
                 item_type = column.type.item_type.python_type
                 fields[name] = (Optional[List[item_type]], None)
@@ -169,7 +166,6 @@ class CreativeFilter(FilterCore):
 
         optional_model = create_model(f"{self.model.__name__}Optional", **fields)
 
-        # 🔧 Фіксована логіка створення optional_list_model
         list_model_fields = {}
         for key, typ in fields.items():
             base_type = typ[0]
