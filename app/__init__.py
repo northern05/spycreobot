@@ -1,5 +1,6 @@
 import logging
 import traceback
+from time import perf_counter
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request, status
@@ -41,6 +42,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def log_request_performance(request: Request, call_next):
+    started_at = perf_counter()
+    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        duration_ms = (perf_counter() - started_at) * 1000
+        response.headers.append("Server-Timing", f"app;dur={duration_ms:.2f}")
+        return response
+    finally:
+        logger.info(
+            "HTTP %s %s status=%s duration_ms=%.2f",
+            request.method,
+            request.url.path,
+            status_code,
+            (perf_counter() - started_at) * 1000,
+        )
+
 
 app.include_router(router=router_v1, prefix=config.api_v1_prefix)
 

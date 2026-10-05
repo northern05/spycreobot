@@ -1,11 +1,9 @@
-from asyncio import current_task
+from collections.abc import AsyncIterator
 
-from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     create_async_engine,
     async_sessionmaker,
-    async_scoped_session,
 )
 
 from app.core.config import db_config
@@ -26,28 +24,13 @@ class DatabaseHelper:
             expire_on_commit=False,
         )
 
-    def get_scoped_session(self):
-        session = async_scoped_session(
-            session_factory=self.session_factory,
-            scopefunc=current_task,
-        )
-        return session
-
-    async def session_dependency(self) -> AsyncSession:
+    async def scoped_session_dependency(self) -> AsyncIterator[AsyncSession]:
         async with self.session_factory() as session:
-            yield session
-            await session.close()
-
-    async def scoped_session_dependency(self) -> AsyncSession:
-        session = self.get_scoped_session()
-        try:
-            yield session
-        except Exception as e:
-            await session.rollback()
-            await session.close()
-            raise HTTPException(status_code=e.status_code, detail=e.detail)
-        finally:
-            await session.close()
+            try:
+                yield session
+            except Exception:
+                await session.rollback()
+                raise
 
 
 db_helper = DatabaseHelper(
